@@ -1,26 +1,80 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Aurora (light) — default */
+:root,
+[data-theme="light"] {
+  --app-bg: #eef1f6;
+  --surface: #ffffff;
+  --surface-2: #f5f7fb;
+  --border: #e8ebf2;
+  --text: #1f2733;
+  --muted: #6b7688;
+  --heading: #0f172a;
+
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #eef0f5;
+  --sidebar-text: #5b6478;
+  --sidebar-muted: #9aa2b4;
+  --sidebar-brand: #0f172a;
+  --sidebar-active-bg: #eef1ff;
+  --sidebar-active-text: #4f46e5;
+  --sidebar-hover: #f5f7fb;
+
+  --primary: #4f46e5;
+  --accent: #4f46e5;
+  --grid: #eef1f6;
+
+  --positive: #0e9f6e;
+  --positive-soft: #e6f6ef;
+
+  --c1: #4f46e5;
+  --c1s: #eef1ff;
+  --c2: #0ea5e9;
+  --c2s: #e5f6fe;
+  --c3: #f59e0b;
+  --c3s: #fef3e0;
+  --c4: #ec4899;
+  --c4s: #fdeaf3;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* Midnight (dark) */
+[data-theme="dark"] {
+  --app-bg: #0a1020;
+  --surface: #121c30;
+  --surface-2: #0e1626;
+  --border: #202b44;
+  --text: #e5ecf7;
+  --muted: #8b97b0;
+  --heading: #f2f6fd;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --sidebar-bg: #0a1020;
+  --sidebar-border: #1a2338;
+  --sidebar-text: #8b97b0;
+  --sidebar-muted: #5a6683;
+  --sidebar-brand: #eef2fb;
+  --sidebar-active-bg: rgba(56, 224, 222, 0.13);
+  --sidebar-active-text: #38e0de;
+  --sidebar-hover: rgba(255, 255, 255, 0.04);
+
+  --primary: #38e0de;
+  --accent: #38e0de;
+  --grid: #1c2740;
+
+  --positive: #34d399;
+  --positive-soft: rgba(52, 211, 153, 0.15);
+
+  --c1: #38e0de;
+  --c1s: rgba(56, 224, 222, 0.15);
+  --c2: #7c8cff;
+  --c2s: rgba(124, 140, 255, 0.17);
+  --c3: #fbbf24;
+  --c3s: rgba(251, 191, 36, 0.15);
+  --c4: #f472b6;
+  --c4s: rgba(244, 114, 182, 0.15);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--app-bg);
+  color: var(--text);
+  font-family: var(--font-manrope), system-ui, sans-serif;
 }
