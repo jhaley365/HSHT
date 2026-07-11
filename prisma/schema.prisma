@@ -1,13 +1,21 @@
 // Prisma schema for HSHT.
 //
-// PROVISIONAL — these models are a reasonable starting point (district / school /
-// student / activity) based on the stated domain, not an introspection of the real
-// legacy SQL Server database. Once the real schema is available, replace this file
-// by either:
-//   1. Pointing DATABASE_URL at the legacy DB and running `npx prisma db pull`
-//      against a Postgres copy after migration, or
-//   2. Hand-porting tables/columns here and writing a data migration script
-//      (see MIGRATION.md).
+// Modeled directly from the legacy SQL Server schema export
+// (hsht-schema-tables-export.csv, information_schema.columns dump).
+// Original table/column names are preserved via @@map/@map so the ETL
+// migration (see MIGRATION.md) is a straightforward 1:1 rename. Legacy
+// int flag columns (0/1) are modeled as Boolean; legacy free-text
+// "Active" varchar(1) columns are modeled as Boolean.
+//
+// Excluded from the source export (see MIGRATION.md "Tables excluded"
+// for the full reasoning): *_BAK / *_Backup / *_YEP / TEMP_* tables
+// (backups and one-off transitional copies), Report_* / View_* /
+// "Report-*" tables (derived reporting queries, not source-of-truth
+// entities — recreate as app-level queries or DB views later), and
+// `Audit` / `All_Schools` / `Total_SchoolID` (see MIGRATION.md open
+// questions — Audit stores plaintext passwords and should not be
+// migrated as-is; All_Schools appears to duplicate Schools and its
+// purpose needs confirming with the client).
 
 generator client {
   provider = "prisma-client"
@@ -18,94 +26,553 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserRole {
-  ADMIN
-  STAFF
-  VIEWER
-}
+model SchoolYear {
+  id        String    @id @default(cuid())
+  legacyId  Int       @unique
+  label     String // legacy "SchoolYear" e.g. "2025-2026"
+  beginDate DateTime?
+  endDate   DateTime?
 
-model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  passwordHash String
-  role         UserRole @default(STAFF)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@map("users")
+  @@map("school_years")
 }
 
 model District {
-  id        String   @id @default(cuid())
-  name      String
-  code      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String  @id @default(cuid())
+  legacyId    Int     @unique
+  districtId  String  @unique // legacy DistrictID (natural key schools reference)
+  name        String
+  county      String
+  active      Boolean @default(true)
+  notes       String?
+  coordinator String? // legacy HSHTCoordinator (free text) — no FK to Coordinator in the source
+  vrQuadrant  String?
+  serviceArea String?
 
   schools School[]
 
   @@map("districts")
 }
 
+// legacy Schools table. (A near-duplicate `All_Schools` table also exists in
+// the source and is not modeled here — see MIGRATION.md open questions.)
 model School {
-  id         String   @id @default(cuid())
-  name       String
-  code       String   @unique
-  districtId String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String  @id @default(cuid())
+  legacyId       Int     @unique
+  districtId     String // FK -> District.districtId (legacy DID)
+  schoolCode     String  @unique
+  name           String
+  streetAddress  String
+  city           String
+  state          String
+  zip            String?
+  schoolType     String?
+  active         Boolean @default(true)
+  notes          String?
+  mailingAddress String?
+  mailingCity    String?
+  mailingState   String
+  mailingZip     String?
 
-  district   District   @relation(fields: [districtId], references: [id])
-  students   Student[]
-  activities Activity[]
+  // Vocational Rehab (VR) contact
+  vrFirstName String?
+  vrLastName  String?
+  vrOffice    String?
+  vrEmail     String?
+
+  // legacy "LN" and "SSL" contact roles — acronyms unconfirmed, carry over as-is
+  lnFirstName       String?
+  lnLastName        String?
+  lnOfficePhone     String?
+  lnOfficePhoneExt  String?
+  lnMobilePhone     String?
+  lnEmail           String?
+  sslFirstName      String?
+  sslLastName       String?
+  sslOfficePhone    String?
+  sslOfficePhoneExt String?
+  sslMobilePhone    String?
+  sslEmail          String?
+
+  // legacy SS1-SS4 — meaning unconfirmed, carry over as-is
+  ss1 Int @default(0)
+  ss2 Int @default(0)
+  ss3 Int @default(0)
+  ss4 Int @default(0)
+
+  district          District          @relation(fields: [districtId], references: [districtId])
+  students          Student[]
+  activities        Activity[]
+  studentActivities StudentActivity[]
 
   @@index([districtId])
   @@map("schools")
 }
 
-model Student {
-  id            String    @id @default(cuid())
-  studentNumber String    @unique
-  firstName     String
-  lastName      String
-  dateOfBirth   DateTime?
-  schoolId      String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+model Coordinator {
+  id           String  @id @default(cuid())
+  legacyId     Int     @unique
+  firstName    String?
+  lastName     String?
+  email        String?
+  passwordHash String? // legacy stored plaintext password — must be rehashed during migration, see MIGRATION.md
+  active       Boolean @default(true)
 
-  school      School            @relation(fields: [schoolId], references: [id])
-  enrollments StudentActivity[]
+  @@map("coordinators")
+}
 
-  @@index([schoolId])
-  @@map("students")
+// legacy UserList — internal staff accounts, a separate auth system from Coordinators.
+model StaffUser {
+  id           String  @id @default(cuid())
+  legacyId     Int     @unique
+  firstName    String?
+  lastName     String?
+  email        String?
+  userName     String?
+  passwordHash String? // legacy stored plaintext password — must be rehashed during migration, see MIGRATION.md
+  accessLevel  Int?
+  active       Boolean @default(true)
+
+  @@map("staff_users")
+}
+
+model Vendor {
+  id         String  @id @default(cuid())
+  legacyId   Int     @unique
+  name       String?
+  vendorCode String?
+  address    String?
+  city       String?
+  state      String?
+  zip        String?
+  email      String?
+  contact    String?
+  phone      String?
+  notes      String?
+
+  @@map("vendors")
+}
+
+model BillingCode {
+  id          String   @id @default(cuid())
+  legacyId    Int      @unique
+  billingCode String?
+  fee         Decimal? @db.Decimal(10, 2)
+  active      Boolean  @default(true)
+
+  invoiceItems        InvoiceItem[]
+  studentInvoiceItems StudentInvoiceItem[]
+
+  @@map("billing_codes")
 }
 
 model Activity {
-  id        String   @id @default(cuid())
-  name      String
-  category  String
-  season    String?
-  schoolId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(cuid())
+  legacyId      Int       @unique
+  name          String
+  description   String?
+  activityDate  DateTime?
+  startDate     DateTime?
+  endDate       DateTime?
+  schoolId      Int
+  closed        Boolean   @default(false)
+  billed        Boolean   @default(false)
+  deleted       Boolean   @default(false)
+  createDate    DateTime  @default(now())
+  preets        String? // legacy PREETS — meaning unconfirmed
+  coordinatorId Int? // legacy HSHTCoordinator (int) — references Coordinator.legacyId
 
-  school      School            @relation(fields: [schoolId], references: [id])
-  enrollments StudentActivity[]
+  school              School               @relation(fields: [schoolId], references: [legacyId])
+  details             ActivityDetail[]
+  studentActivities   StudentActivity[]
+  invoices            Invoice[]
+  invoiceItems        InvoiceItem[]
+  studentInvoiceItems StudentInvoiceItem[]
 
   @@index([schoolId])
   @@map("activities")
 }
 
+model ActivityItem {
+  id             String  @id @default(cuid())
+  legacyId       Int     @unique
+  activityItemId Int     @unique // legacy natural key, distinct from surrogate ID
+  group          String?
+  description    String
+  billingCode    String?
+  enabled        Boolean @default(true)
+
+  details ActivityDetail[]
+
+  @@map("activity_items")
+}
+
+model ActivityDetail {
+  id              String  @id @default(cuid())
+  legacyId        Int     @unique
+  activityId      Int
+  activityItemId  Int
+  description     String
+  hsht            Boolean @default(false)
+  hshtCoordinator String?
+  other           Boolean @default(false)
+  otherDetail     String?
+
+  activity            Activity             @relation(fields: [activityId], references: [legacyId])
+  activityItem        ActivityItem         @relation(fields: [activityItemId], references: [activityItemId])
+  invoiceItems        InvoiceItem[]
+  studentInvoiceItems StudentInvoiceItem[]
+
+  @@index([activityId])
+  @@index([activityItemId])
+  @@map("activity_details")
+}
+
+model Invoice {
+  id          String    @id @default(cuid())
+  legacyId    Int       @unique
+  invoiceDate DateTime
+  startDate   DateTime?
+  endDate     DateTime?
+  activityId  Int?
+  totalAmount Decimal?  @db.Decimal(10, 2)
+  closed      Boolean   @default(false)
+  status      String?
+
+  activity            Activity?            @relation(fields: [activityId], references: [legacyId])
+  invoiceItems        InvoiceItem[]
+  studentActivities   StudentActivity[]
+  studentInvoiceItems StudentInvoiceItem[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id                String   @id @default(cuid())
+  legacyId          Int      @unique
+  invoiceId         Int
+  activityId        Int
+  activityDetailsId Int
+  billingCodeId     Int?
+  fee               Decimal? @db.Decimal(10, 2)
+  quantity          Decimal? @db.Decimal(10, 2)
+  billed            Boolean  @default(false)
+  deleted           Boolean  @default(false)
+
+  invoice        Invoice        @relation(fields: [invoiceId], references: [legacyId])
+  activity       Activity       @relation(fields: [activityId], references: [legacyId])
+  activityDetail ActivityDetail @relation(fields: [activityDetailsId], references: [legacyId])
+  billingCode    BillingCode?   @relation(fields: [billingCodeId], references: [legacyId])
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Student {
+  id             String    @id @default(cuid())
+  legacyId       Int       @unique
+  schoolId       Int
+  firstName      String?
+  middleName     String?
+  lastName       String?
+  birthDate      DateTime?
+  phone          String?
+  emailAddress   String?
+  streetAddress  String?
+  city           String?
+  state          String?
+  zip            String?
+  county         String?
+  active         Boolean   @default(true)
+  gender         String?
+  race           String?
+  raceOther      String?
+  ethnicHeritage String?
+
+  // disability/accommodation flags (legacy single-char Y/N columns)
+  autism          Boolean @default(false)
+  aspergers       Boolean @default(false)
+  deaf            Boolean @default(false)
+  ebd             Boolean @default(false)
+  mobility        Boolean @default(false)
+  ohi             Boolean @default(false)
+  orthopedic      Boolean @default(false)
+  speech          Boolean @default(false)
+  sld             Boolean @default(false)
+  spinal          Boolean @default(false)
+  tbi             Boolean @default(false)
+  visual          Boolean @default(false)
+  otherDisability Boolean @default(false)
+  otherInfo       String?
+  section504      Boolean @default(false) // legacy column literally named "504"
+
+  grade             String?
+  enterDate         String? // legacy stores this as varchar, not a real date — confirm format during migration
+  graduated         Boolean   @default(false)
+  graduateDate      DateTime?
+  employmentDate    DateTime?
+  employment        String?
+  eip               Boolean   @default(false)
+  vrc               String?
+  hshtCoordinator   String?
+  reportableStudent Boolean   @default(false)
+  receivedForm      Boolean   @default(false)
+  vocationalRehab   Boolean   @default(false)
+  reportableCheck   Boolean   @default(false)
+  vrCaseloadCheck   Boolean   @default(false)
+  enrollDate        DateTime?
+  createDate        DateTime  @default(now())
+
+  school                School                  @relation(fields: [schoolId], references: [legacyId])
+  activities            StudentActivity[]
+  notes                 StudentNote[]
+  history               StudentHistoryEntry[]
+  outcomes              StudentOutcome[]
+  equipment             StudentEquipment[]
+  programCodes          StudentProgramCode[]
+  invoiceItems          StudentInvoiceItem[]
+  enrollmentFormHistory EnrollmentFormHistory[]
+
+  @@index([schoolId])
+  @@map("students")
+}
+
+// legacy StudentArchive is a year-end snapshot of Students + SchoolYear; modeled
+// as its own table (not a Student relation) since it's historical/point-in-time data.
+model StudentArchive {
+  id             String    @id @default(cuid())
+  legacyId       Int       @unique
+  studentId      Int
+  schoolYear     String?
+  schoolId       Int
+  firstName      String?
+  middleName     String?
+  lastName       String?
+  birthDate      DateTime?
+  phone          String?
+  emailAddress   String?
+  streetAddress  String?
+  city           String?
+  state          String?
+  zip            String?
+  county         String?
+  active         Boolean   @default(true)
+  gender         String?
+  race           String?
+  raceOther      String?
+  ethnicHeritage String?
+  grade          String?
+  enrollDate     DateTime?
+  createDate     DateTime  @default(now())
+
+  @@index([studentId])
+  @@map("student_archive")
+}
+
 model StudentActivity {
-  id         String   @id @default(cuid())
-  studentId  String
-  activityId String
-  joinedAt   DateTime @default(now())
+  id         String    @id @default(cuid())
+  legacyId   Int       @unique
+  activityId Int
+  studentId  Int
+  schoolId   Int
+  status     Int // legacy status code — enum values unconfirmed, carry over as int pending clarification
+  billed     Boolean   @default(false)
+  billDate   DateTime?
+  createDate DateTime  @default(now())
+  deleted    Boolean   @default(false)
+  invoiceId  Int?
 
-  student  Student  @relation(fields: [studentId], references: [id])
-  activity Activity @relation(fields: [activityId], references: [id])
+  activity Activity @relation(fields: [activityId], references: [legacyId])
+  student  Student  @relation(fields: [studentId], references: [legacyId])
+  school   School   @relation(fields: [schoolId], references: [legacyId])
+  invoice  Invoice? @relation(fields: [invoiceId], references: [legacyId])
 
-  @@unique([studentId, activityId])
+  @@index([activityId])
+  @@index([studentId])
   @@map("student_activities")
+}
+
+model StudentInvoiceItem {
+  id                String   @id @default(cuid())
+  legacyId          Int      @unique
+  studentId         Int
+  invoiceId         Int
+  activityId        Int
+  activityDetailsId Int
+  billingCodeId     Int?
+  fee               Decimal? @db.Decimal(10, 2)
+  quantity          Decimal? @db.Decimal(10, 2)
+  billed            Boolean  @default(false)
+  deleted           Boolean  @default(false)
+
+  student        Student        @relation(fields: [studentId], references: [legacyId])
+  invoice        Invoice        @relation(fields: [invoiceId], references: [legacyId])
+  activity       Activity       @relation(fields: [activityId], references: [legacyId])
+  activityDetail ActivityDetail @relation(fields: [activityDetailsId], references: [legacyId])
+  billingCode    BillingCode?   @relation(fields: [billingCodeId], references: [legacyId])
+
+  @@index([studentId])
+  @@index([invoiceId])
+  @@map("student_invoice_items")
+}
+
+model StudentNote {
+  id        String   @id @default(cuid())
+  legacyId  Int      @unique
+  studentId Int
+  noteDate  DateTime
+  note      String?
+
+  student Student @relation(fields: [studentId], references: [legacyId])
+
+  @@index([studentId])
+  @@map("student_notes")
+}
+
+model StudentHistoryEntry {
+  id           String   @id @default(cuid())
+  legacyId     Int      @unique
+  studentId    Int
+  historyDate  DateTime
+  historyEvent String
+
+  student Student @relation(fields: [studentId], references: [legacyId])
+
+  @@index([studentId])
+  @@map("student_history")
+}
+
+model StudentOutcome {
+  id                String    @id @default(cuid())
+  legacyId          Int       @unique
+  studentId         Int
+  graduated         Boolean?
+  graduateDate      DateTime?
+  employment        String?
+  employmentDate    DateTime?
+  postSecondary     String?
+  postSecondaryDate DateTime?
+
+  student Student @relation(fields: [studentId], references: [legacyId])
+
+  @@index([studentId])
+  @@map("student_outcomes")
+}
+
+model StudentEquipment {
+  id                  String    @id @default(cuid())
+  legacyId            Int       @unique
+  studentId           Int
+  equipmentType       String?
+  modelNumber         String?
+  serialNumber        String?
+  dateIssued          DateTime?
+  assistiveTechnology String?
+
+  student Student @relation(fields: [studentId], references: [legacyId])
+
+  @@index([studentId])
+  @@map("student_equipment")
+}
+
+model StudentProgramCode {
+  id          String @id @default(cuid())
+  legacyId    Int    @unique
+  studentId   Int
+  programCode String
+
+  student Student @relation(fields: [studentId], references: [legacyId])
+
+  @@index([studentId])
+  @@map("student_program_codes")
+}
+
+// legacy StudentParticipationID has no surrogate key — modeled with a
+// synthetic id and a uniqueness constraint on the original composite.
+model StudentParticipation {
+  id              String @id @default(cuid())
+  studentId       Int
+  participationId Int
+
+  @@unique([studentId, participationId])
+  @@map("student_participation_ids")
+}
+
+// legacy EnrollmentForm and StudentEnrollmentForm have identical structure in
+// the source export — likely "new submission" vs. "on file for an existing
+// student" or a duplicate created during a past migration. Confirm the
+// distinction with the client; both are modeled here pending that answer.
+model EnrollmentForm {
+  id                String    @id @default(cuid())
+  legacyId          Int       @unique
+  source            String    @default("EnrollmentForm") // "EnrollmentForm" | "StudentEnrollmentForm"
+  schoolId          Int
+  firstName         String?
+  middleName        String?
+  lastName          String?
+  birthDate         DateTime?
+  phone             String?
+  emailAddress      String?
+  streetAddress     String?
+  city              String?
+  state             String?
+  zip               String?
+  county            String?
+  active            Boolean   @default(true)
+  gender            String?
+  race              String?
+  raceOther         String?
+  ethnicHeritage    String?
+  autism            Boolean   @default(false)
+  aspergers         Boolean   @default(false)
+  deaf              Boolean   @default(false)
+  ebd               Boolean   @default(false)
+  mobility          Boolean   @default(false)
+  ohi               Boolean   @default(false)
+  orthopedic        Boolean   @default(false)
+  speech            Boolean   @default(false)
+  sld               Boolean   @default(false)
+  spinal            Boolean   @default(false)
+  tbi               Boolean   @default(false)
+  visual            Boolean   @default(false)
+  otherDisability   Boolean   @default(false)
+  otherInfo         String?
+  grade             String?
+  enterDate         String?
+  graduated         Boolean   @default(false)
+  graduateDate      DateTime?
+  employmentDate    DateTime?
+  employment        String?
+  eip               Boolean   @default(false)
+  vrc               String?
+  hshtCoordinator   String?
+  reportableStudent Boolean   @default(false)
+  section504        Boolean   @default(false)
+  createDate        DateTime  @default(now())
+  signatureStudent  String?
+  signatureParent   String?
+
+  @@map("enrollment_forms")
+}
+
+model EnrollmentFormHistory {
+  id           String   @id @default(cuid())
+  legacyId     Int      @unique
+  studentId    Int
+  historyDate  DateTime
+  historyEvent String
+
+  student Student @relation(fields: [studentId], references: [legacyId])
+
+  @@index([studentId])
+  @@map("enrollment_form_history")
+}
+
+model AuditLog {
+  id       String   @id @default(cuid())
+  legacyId Int      @unique
+  logDate  DateTime
+  userName String?
+  logEvent String?
+
+  @@map("audit_log")
 }

@@ -9,9 +9,12 @@ activities — a rebuild of a legacy Microsoft SQL Server–backed system.
 
 ## Status
 
-Early scaffold. The UI package and the real database schema haven't been
-imported yet — see `prisma/schema.prisma` (marked provisional) and
-`MIGRATION.md`.
+Early scaffold. `prisma/schema.prisma` is modeled from the real legacy SQL
+Server schema export (`hsht-schema-tables-export.csv`) — see `MIGRATION.md`
+for the full table inventory, exclusions, and open questions that need
+answers before the schema is finalized. The enrollment dashboard UI package
+(`Legacy interface upgrade.zip` → `design_handoff_enrollment_dashboard/`) has
+been uploaded but not yet implemented in the app.
 
 ## Getting started (local dev)
 
