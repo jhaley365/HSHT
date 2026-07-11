@@ -1,0 +1,111 @@
+// Prisma schema for HSHT.
+//
+// PROVISIONAL — these models are a reasonable starting point (district / school /
+// student / activity) based on the stated domain, not an introspection of the real
+// legacy SQL Server database. Once the real schema is available, replace this file
+// by either:
+//   1. Pointing DATABASE_URL at the legacy DB and running `npx prisma db pull`
+//      against a Postgres copy after migration, or
+//   2. Hand-porting tables/columns here and writing a data migration script
+//      (see MIGRATION.md).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(STAFF)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
+model District {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schools School[]
+
+  @@map("districts")
+}
+
+model School {
+  id         String   @id @default(cuid())
+  name       String
+  code       String   @unique
+  districtId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  district   District   @relation(fields: [districtId], references: [id])
+  students   Student[]
+  activities Activity[]
+
+  @@index([districtId])
+  @@map("schools")
+}
+
+model Student {
+  id            String    @id @default(cuid())
+  studentNumber String    @unique
+  firstName     String
+  lastName      String
+  dateOfBirth   DateTime?
+  schoolId      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  school      School            @relation(fields: [schoolId], references: [id])
+  enrollments StudentActivity[]
+
+  @@index([schoolId])
+  @@map("students")
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  name      String
+  category  String
+  season    String?
+  schoolId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school      School            @relation(fields: [schoolId], references: [id])
+  enrollments StudentActivity[]
+
+  @@index([schoolId])
+  @@map("activities")
+}
+
+model StudentActivity {
+  id         String   @id @default(cuid())
+  studentId  String
+  activityId String
+  joinedAt   DateTime @default(now())
+
+  student  Student  @relation(fields: [studentId], references: [id])
+  activity Activity @relation(fields: [activityId], references: [id])
+
+  @@unique([studentId, activityId])
+  @@map("student_activities")
+}
