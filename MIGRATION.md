@@ -125,6 +125,20 @@ column-only schema export (no FK/index metadata) means every relationship
 inferred from naming should get this same verification treatment before
 the final migration, not just Districts/Schools.
 
+### First full sync, end to end (2026-07-12)
+
+With the above fixed, a complete `npm run sync:legacy` run (all tables,
+against the real legacy DB) finished cleanly in ~9 minutes: 141 total rows
+skipped out of ~300K synced (0.04%) — all small, expected gaps of the kind
+already documented above (`StudentActivity` 21, `StudentHistory` 72,
+`StudentProgramCode` 38, `StudentOutcome` 1, `StudentNotes` 1), plus one not
+yet dug into: **`EnrollmentFormHistory` skipped 100% (all 8 rows)** — given
+`EnrollmentForms` itself is already flagged (open question #6) as a
+rarely-used feature with only 8 real submissions against 20,276 students,
+this is likely the same kind of orphaned-reference gap and not worth
+separate investigation unless the client ends up caring about this feature's
+history specifically.
+
 ## Open questions for the client
 
 1. **`All_Schools` vs `Schools`** — see above.
