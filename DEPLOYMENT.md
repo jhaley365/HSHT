@@ -57,8 +57,32 @@ npm run dev
 ## Rollback
 Compose keeps the previous image only if you tag releases (recommended once this is past initial setup — e.g. build with `docker compose build` then `docker tag hsht-app:latest hsht-app:<git-sha>` before deploying, so you can `docker compose up -d` a known-good tag if a deploy misbehaves).
 
+## Troubleshooting notes from the first deploy
+
+These bit us setting up the first VPS (Ubuntu 24.04, AWS EC2) — fixed in the
+repo, but worth knowing if you ever stand this up fresh elsewhere:
+
+- **Disk space.** A Next.js + Prisma Docker build needs more than a default
+  small root volume (we hit "no space left on device" on a 7GB disk — 20GB+
+  is a safer minimum). If you resize an EBS root volume, the block device
+  grows immediately but the partition and filesystem don't — you still need
+  `sudo growpart /dev/xvda 1 && sudo resize2fs /dev/xvda1` (adjust device
+  name per `lsblk`) after resizing in the AWS console.
+- **`migrate` service must build from the `builder` Docker stage, not the
+  final `runner` stage.** `runner` is a minimal Next.js standalone bundle
+  with no Prisma CLI and no `prisma.config.ts` — `docker-compose.yml`'s
+  `migrate` service sets `build.target: builder` for this reason. If you
+  ever see `npx` fetching a fresh `prisma` package inside a container that
+  should already have it installed, this is why.
+- **Compose's `.env` substitution doesn't reach files bind-mounted into a
+  container.** The `Caddyfile`'s `{$HSHT_DOMAIN:localhost}` reads *Caddy's
+  own process environment* — it only gets a real value because
+  `docker-compose.yml` explicitly passes `HSHT_DOMAIN` through under the
+  `caddy` service's `environment:` block. Without that, Caddy silently
+  issues a cert for `localhost` and never matches your real domain.
+
 ## Open items to decide before production
-- **Domain**: what hostname does this app live at (e.g. `hsht.haley365.com`)?
+- **Domain**: `app.gacomm-enroll.org` (confirmed working, real Let's Encrypt cert issued).
 - **Backups**: where should off-site backups land (S3-compatible bucket, another server)?
 - **Auth**: who can log in and how (see MIGRATION.md's note on the legacy auth model) — this scaffold ships a `User` table with a role enum but no auth flow wired up yet.
 - **Monitoring**: at minimum, uptime checks against the public URL and disk-space alerts on the VPS (Postgres volume growth).
