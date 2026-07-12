@@ -1,5 +1,5 @@
 import { getEnrollmentSeries, getMiniMetrics } from "@/lib/dashboard-data";
-import { BarSparkline, LineSparkline } from "@/components/dashboard/Sparkline";
+import { BarSparkline } from "@/components/dashboard/Sparkline";
 
 const GRIDLINES = [30, 75, 120, 165, 210];
 const Y_LABELS = ["120", "90", "60", "30", "0"];
@@ -63,7 +63,7 @@ export function EnrollmentChart() {
       </div>
 
       <div
-        className="mt-4 grid grid-cols-3 gap-4 border-t pt-4"
+        className="mt-4 grid grid-cols-2 gap-4 border-t pt-4"
         style={{ borderColor: "var(--border)" }}
       >
         {metrics.map((m) => (
@@ -80,11 +80,7 @@ export function EnrollmentChart() {
                   +{m.deltaPercent.toFixed(1)}%
                 </span>
               </div>
-              {m.sparkline === "bar" ? (
-                <BarSparkline values={m.bars ?? []} color={m.color} />
-              ) : (
-                <LineSparkline color={m.color} />
-              )}
+              <BarSparkline values={m.bars} color={m.color} />
             </div>
           </div>
         ))}

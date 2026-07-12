@@ -14,12 +14,15 @@ export type Kpi = {
   trend: Trend;
 };
 
-export function getKpis(): Kpi[] {
+// Trend percentages are still mock — computing a real "vs last month" delta
+// needs a historical snapshot we don't have yet (StudentArchive is a
+// year-based snapshot, not monthly). Counts themselves are real.
+export function getKpis(counts: { students: number; schools: number; districts: number }): Kpi[] {
   return [
-    { label: "Students", sublabel: "Total enrolled", value: "1,847", icon: "person", color: "c1", trend: { direction: "up", percent: 12.4, caption: "vs last month" } },
+    { label: "Students", sublabel: "Total enrolled", value: counts.students.toLocaleString(), icon: "person", color: "c1", trend: { direction: "up", percent: 12.4, caption: "vs last month" } },
     { label: "Activities", sublabel: "Total year to date", value: "342", icon: "pulse", color: "c2", trend: { direction: "up", percent: 6.1, caption: "vs last month" } },
-    { label: "Schools", sublabel: "Total active", value: "293", icon: "building", color: "c3", trend: { direction: "up", percent: 2.0, caption: "vs last month" } },
-    { label: "Districts", sublabel: "Total active", value: "156", icon: "org-tree", color: "c4", trend: { direction: "flat", percent: 0, caption: "no change" } },
+    { label: "Schools", sublabel: "Total active", value: counts.schools.toLocaleString(), icon: "building", color: "c3", trend: { direction: "up", percent: 2.0, caption: "vs last month" } },
+    { label: "Districts", sublabel: "Total active", value: counts.districts.toLocaleString(), icon: "org-tree", color: "c4", trend: { direction: "flat", percent: 0, caption: "no change" } },
   ];
 }
 
@@ -51,30 +54,19 @@ export type MiniMetric = {
   label: string;
   value: string;
   deltaPercent: number;
-  sparkline: "bar" | "line";
   color: "c1" | "c2" | "c3";
-  bars?: number[];
+  bars: number[];
 };
 
 export function getMiniMetrics(): MiniMetric[] {
   return [
-    { label: "Total Students", value: "1,847", deltaPercent: 8.2, sparkline: "bar", color: "c1", bars: [46, 62, 40, 68, 52, 78, 58, 50, 72, 64, 44, 80, 56, 70] },
-    { label: "Total Invoicing", value: "$48,250", deltaPercent: 5.1, sparkline: "line", color: "c2" },
-    { label: "Total Enrollment", value: "2,190", deltaPercent: 11.0, sparkline: "bar", color: "c3", bars: [56, 48, 66, 54, 74, 60, 50, 68, 62, 78, 52, 70, 58, 82] },
+    { label: "Total Students", value: "1,847", deltaPercent: 8.2, color: "c1", bars: [46, 62, 40, 68, 52, 78, 58, 50, 72, 64, 44, 80, 56, 70] },
+    { label: "Total Enrollment", value: "2,190", deltaPercent: 11.0, color: "c3", bars: [56, 48, 66, 54, 74, 60, 50, 68, 62, 78, 52, 70, 58, 82] },
   ];
 }
 
+// Real data now — see src/lib/db-queries.ts#getTopEnrollmentSchools.
 export type TopSchool = { name: string; county: string; students: number; color: "c1" | "c2" | "c3" | "c4" };
-
-export function getTopEnrollment(): TopSchool[] {
-  return [
-    { name: "Pierce County High School", county: "Pierce County", students: 24, color: "c1" },
-    { name: "Fannin County High School", county: "Fannin County", students: 20, color: "c2" },
-    { name: "Richmond Hill High School", county: "Bryan County", students: 16, color: "c3" },
-    { name: "Bacon County High School", county: "Bacon County", students: 11, color: "c4" },
-    { name: "Valdosta High School", county: "Lowndes County", students: 10, color: "c1" },
-  ];
-}
 
 export type ActivityRow = {
   date: string;

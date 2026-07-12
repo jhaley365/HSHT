@@ -1,9 +1,7 @@
 import { Building2 } from "lucide-react";
-import { getTopEnrollment } from "@/lib/dashboard-data";
+import type { TopSchool } from "@/lib/dashboard-data";
 
-export function TopEnrollmentPanel() {
-  const schools = getTopEnrollment();
-
+export function TopEnrollmentPanel({ schools }: { schools: TopSchool[] }) {
   return (
     <div
       className="w-[322px] flex-none rounded-[14px] border px-5 pb-3 pt-5"

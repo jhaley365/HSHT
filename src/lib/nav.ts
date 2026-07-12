@@ -1,7 +1,6 @@
 import {
   Home,
   Activity,
-  Receipt,
   Users,
   Building2,
   Network,
@@ -22,7 +21,6 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { label: "Home", href: "/", icon: Home },
   { label: "Activity", href: "/activity", icon: Activity, expandable: true },
-  { label: "Invoices", href: "/invoices", icon: Receipt, expandable: true },
   { label: "Students", href: "/students", icon: Users },
   { label: "Schools", href: "/schools", icon: Building2 },
   { label: "School Districts", href: "/districts", icon: Network },
