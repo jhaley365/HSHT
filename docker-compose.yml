@@ -43,6 +43,8 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    environment:
+      HSHT_DOMAIN: ${HSHT_DOMAIN:?set HSHT_DOMAIN in .env}
     ports:
       - "80:80"
       - "443:443"
