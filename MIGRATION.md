@@ -77,6 +77,17 @@ in the original schema, both now fixed:
   `ID`) is the *only* reliable unique key on this table — no composite
   natural key exists in the real data. `schoolCode` is a plain string,
   intentionally with no uniqueness constraint.
+- **`StudentActivity` has 10 orphaned rows** (of 82,215) whose `StudentID`
+  doesn't exist in `Students` — 7 of those 10 at least exist in
+  `StudentArchive` (consistent with a student being archived/removed from
+  the live table while their historical activity record stayed put); 3 are
+  untraceable even there. Small enough (0.01%) not to block anything, but
+  real. This is why `sync-legacy.ts` now **skips and counts** rows that
+  violate a foreign key or uniqueness constraint (Prisma error codes P2003/
+  P2002) instead of aborting the whole sync — expect small skip counts like
+  this scattered across other tables too as the full sync gets exercised
+  further; each one should get the same treatment as above (a quick
+  read-only diagnostic against the real DB) rather than being assumed away.
 
 Row counts from the same dry-run (resolves open question #7 below — no
 `pgloader`/staged-ETL question, this is small enough for `sync-legacy.ts` to

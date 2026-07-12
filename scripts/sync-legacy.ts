@@ -6,6 +6,12 @@
 // since this data includes student PII (names, birthdates, disability
 // status, race). Do not add logging that prints individual records.
 //
+// Real legacy data has scattered small referential-integrity gaps (see
+// MIGRATION.md — e.g. a handful of StudentActivity rows whose StudentID no
+// longer exists in Students). Rather than aborting the whole sync on each
+// one, safeUpsert() skips a row that violates a foreign key or uniqueness
+// constraint and counts it; every job reports how many it skipped.
+//
 // Usage:
 //   npm run sync:legacy                         # sync everything
 //   npm run sync:legacy -- --only=Students,Schools
@@ -27,6 +33,8 @@ function shouldRun(name: string) {
   return !ONLY || ONLY.includes(name);
 }
 
+type JobResult = { total: number; skipped: number };
+
 // --- transform helpers -------------------------------------------------
 
 // Legacy boolean-ish columns show up as int (0/1) or varchar(1)/char(1)
@@ -45,6 +53,29 @@ function toDecimal(v: unknown): number | null {
   if (v === null || v === undefined) return null;
   const n = Number(v);
   return Number.isNaN(n) ? null : n;
+}
+
+// P2003 = foreign key constraint failed, P2002 = unique constraint failed.
+// Both indicate a row referencing/duplicating something that doesn't hold up
+// in the real data (see MIGRATION.md) — skip it rather than abort the sync.
+function isSkippableConstraintError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    typeof (err as { code?: unknown }).code === "string" &&
+    ["P2003", "P2002"].includes((err as { code: string }).code)
+  );
+}
+
+async function safeUpsert(fn: () => Promise<unknown>): Promise<boolean> {
+  try {
+    await fn();
+    return true;
+  } catch (err) {
+    if (isSkippableConstraintError(err)) return false;
+    throw err;
+  }
 }
 
 // --- connection ----------------------------------------------------------
@@ -73,36 +104,33 @@ async function getLegacyPool() {
 }
 
 // --- sync jobs, in dependency order --------------------------------------
-// Each job fetches every non-deleted-looking row from its legacy table and
-// upserts into Postgres keyed on legacyId. Excluded tables (backups, TEMP_*,
-// Report_*/View_*, Audit, All_Schools, Total_SchoolID) are intentionally not
-// here — see MIGRATION.md.
+// Each job fetches every row from its legacy table and upserts into Postgres
+// keyed on legacyId. Excluded tables (backups, TEMP_*, Report_*/View_*,
+// Audit, All_Schools, Total_SchoolID) are intentionally not here — see
+// MIGRATION.md.
 
-async function syncSchoolYear(pool: sql.ConnectionPool) {
+async function syncSchoolYear(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.SchoolYear");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
-    await prisma.schoolYear.upsert({
-      where: { legacyId: row.ID },
-      create: {
-        legacyId: row.ID,
-        label: row.SchoolYear,
-        beginDate: row.BeginDate,
-        endDate: row.EndDate,
-      },
-      update: {
-        label: row.SchoolYear,
-        beginDate: row.BeginDate,
-        endDate: row.EndDate,
-      },
-    });
+    const data = { label: row.SchoolYear, beginDate: row.BeginDate, endDate: row.EndDate };
+    const ok = await safeUpsert(() =>
+      prisma.schoolYear.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncDistricts(pool: sql.ConnectionPool) {
+async function syncDistricts(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.Districts");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       code: row.DistrictID,
@@ -114,18 +142,22 @@ async function syncDistricts(pool: sql.ConnectionPool) {
       vrQuadrant: row.VRQuadrant,
       serviceArea: row.HSHTServiceArea,
     };
-    await prisma.district.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.district.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncSchools(pool: sql.ConnectionPool) {
+async function syncSchools(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.Schools");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       districtId: parseInt(row.DID, 10),
@@ -163,18 +195,22 @@ async function syncSchools(pool: sql.ConnectionPool) {
       ss3: row.SS3 ?? 0,
       ss4: row.SS4 ?? 0,
     };
-    await prisma.school.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.school.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncCoordinators(pool: sql.ConnectionPool) {
+async function syncCoordinators(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.Coordinators");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     // Deliberately NOT copying row.Password — see MIGRATION.md "Auth".
     const data = {
@@ -183,18 +219,22 @@ async function syncCoordinators(pool: sql.ConnectionPool) {
       email: row.Email,
       active: toBool(row.Active),
     };
-    await prisma.coordinator.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.coordinator.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncStaffUsers(pool: sql.ConnectionPool) {
+async function syncStaffUsers(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.UserList");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     // Deliberately NOT copying row.Password — see MIGRATION.md "Auth".
     const data = {
@@ -205,18 +245,22 @@ async function syncStaffUsers(pool: sql.ConnectionPool) {
       accessLevel: row.AccessLevel,
       active: toBool(row.Active),
     };
-    await prisma.staffUser.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.staffUser.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncVendors(pool: sql.ConnectionPool) {
+async function syncVendors(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.Vendors");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       name: row.Name,
@@ -230,36 +274,44 @@ async function syncVendors(pool: sql.ConnectionPool) {
       phone: row.Phone,
       notes: row.Notes,
     };
-    await prisma.vendor.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.vendor.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncBillingCodes(pool: sql.ConnectionPool) {
+async function syncBillingCodes(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.BillingCodes");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       billingCode: row.BillingCode,
       fee: toDecimal(row.Fee),
       active: toBool(row.Active),
     };
-    await prisma.billingCode.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.billingCode.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncActivities(pool: sql.ConnectionPool) {
+async function syncActivities(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.Activity");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       name: row.Name,
@@ -275,18 +327,22 @@ async function syncActivities(pool: sql.ConnectionPool) {
       preets: row.PREETS,
       coordinatorId: row.HSHTCoordinator ?? null,
     };
-    await prisma.activity.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.activity.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncActivityItems(pool: sql.ConnectionPool) {
+async function syncActivityItems(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.ActivityItems");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       activityItemId: row.ActivityItemID,
@@ -295,18 +351,22 @@ async function syncActivityItems(pool: sql.ConnectionPool) {
       billingCode: row.BillingCode,
       enabled: toBool(row.Enabled),
     };
-    await prisma.activityItem.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.activityItem.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncActivityDetails(pool: sql.ConnectionPool) {
+async function syncActivityDetails(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.ActivityDetails");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       activityId: row.ActivityID,
@@ -317,18 +377,22 @@ async function syncActivityDetails(pool: sql.ConnectionPool) {
       other: toBool(row.Other),
       otherDetail: row.OtherDetail,
     };
-    await prisma.activityDetail.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.activityDetail.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncStudents(pool: sql.ConnectionPool) {
+async function syncStudents(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.Students");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       schoolId: row.SchoolID,
@@ -380,18 +444,22 @@ async function syncStudents(pool: sql.ConnectionPool) {
       enrollDate: row.EnrollDate,
       createDate: row.CreateDate,
     };
-    await prisma.student.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.student.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncStudentActivity(pool: sql.ConnectionPool) {
+async function syncStudentActivity(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.StudentActivity");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       activityId: row.ActivityID,
@@ -404,18 +472,22 @@ async function syncStudentActivity(pool: sql.ConnectionPool) {
       deleted: toBool(row.Deleted),
       invoiceId: row.InvoiceID ?? null,
     };
-    await prisma.studentActivity.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.studentActivity.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncInvoices(pool: sql.ConnectionPool) {
+async function syncInvoices(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.Invoices");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       invoiceDate: row.InvoiceDate,
@@ -426,18 +498,22 @@ async function syncInvoices(pool: sql.ConnectionPool) {
       closed: toBool(row.Closed),
       status: row.Status,
     };
-    await prisma.invoice.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.invoice.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncInvoiceItems(pool: sql.ConnectionPool) {
+async function syncInvoiceItems(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.InvoiceItems");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       invoiceId: row.InvoiceID,
@@ -449,18 +525,22 @@ async function syncInvoiceItems(pool: sql.ConnectionPool) {
       billed: toBool(row.Billed),
       deleted: toBool(row.Deleted),
     };
-    await prisma.invoiceItem.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.invoiceItem.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncStudentInvoiceItems(pool: sql.ConnectionPool) {
+async function syncStudentInvoiceItems(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.StudentInvoiceItems");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       studentId: row.StudentID,
@@ -473,46 +553,58 @@ async function syncStudentInvoiceItems(pool: sql.ConnectionPool) {
       billed: toBool(row.Billed),
       deleted: toBool(row.Deleted),
     };
-    await prisma.studentInvoiceItem.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.studentInvoiceItem.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncStudentNotes(pool: sql.ConnectionPool) {
+async function syncStudentNotes(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.StudentNotes");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = { studentId: row.StudentID, noteDate: row.NoteDate, note: row.Note };
-    await prisma.studentNote.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.studentNote.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncStudentHistory(pool: sql.ConnectionPool) {
+async function syncStudentHistory(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.StudentHistory");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = { studentId: row.StudentID, historyDate: row.HistoryDate, historyEvent: row.HistoryEvent };
-    await prisma.studentHistoryEntry.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.studentHistoryEntry.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncStudentOutcome(pool: sql.ConnectionPool) {
+async function syncStudentOutcome(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.StudentOutcome");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       studentId: row.StudentID,
@@ -523,18 +615,22 @@ async function syncStudentOutcome(pool: sql.ConnectionPool) {
       postSecondary: row.PostSecondary,
       postSecondaryDate: row.PSDate,
     };
-    await prisma.studentOutcome.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.studentOutcome.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncStudentEquipment(pool: sql.ConnectionPool) {
+async function syncStudentEquipment(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.StudentEquipment");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       studentId: row.StudentID,
@@ -544,47 +640,59 @@ async function syncStudentEquipment(pool: sql.ConnectionPool) {
       dateIssued: row.DateIssued,
       assistiveTechnology: row.AssistiveTechnology,
     };
-    await prisma.studentEquipment.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.studentEquipment.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncStudentProgramCode(pool: sql.ConnectionPool) {
+async function syncStudentProgramCode(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.StudentProgramCode");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = { studentId: row.StudentID, programCode: row.ProgramCode };
-    await prisma.studentProgramCode.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.studentProgramCode.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncStudentParticipation(pool: sql.ConnectionPool) {
+async function syncStudentParticipation(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.StudentParticipationID");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
-    await prisma.studentParticipation.upsert({
-      where: { studentId_participationId: { studentId: row.StudentID, participationId: row.ParticipationID } },
-      create: { studentId: row.StudentID, participationId: row.ParticipationID },
-      update: {},
-    });
+    const ok = await safeUpsert(() =>
+      prisma.studentParticipation.upsert({
+        where: { studentId_participationId: { studentId: row.StudentID, participationId: row.ParticipationID } },
+        create: { studentId: row.StudentID, participationId: row.ParticipationID },
+        update: {},
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
 // EnrollmentForm and StudentEnrollmentForm share identical columns in the
 // legacy DB — both feed the same Postgres model, tagged by `source`, per
 // the open question in MIGRATION.md.
-async function syncEnrollmentForms(pool: sql.ConnectionPool) {
+async function syncEnrollmentForms(pool: sql.ConnectionPool): Promise<JobResult> {
   let total = 0;
+  let skipped = 0;
   for (const [table, source] of [
     ["EnrollmentForm", "EnrollmentForm"],
     ["StudentEnrollmentForm", "StudentEnrollmentForm"],
@@ -643,33 +751,42 @@ async function syncEnrollmentForms(pool: sql.ConnectionPool) {
       };
       // legacyId isn't unique across the two source tables on its own, so
       // the natural key here is (source, legacyId).
-      await prisma.enrollmentForm.upsert({
-        where: { legacyId: table === "EnrollmentForm" ? row.ID : row.ID + 1_000_000_000 },
-        create: { legacyId: table === "EnrollmentForm" ? row.ID : row.ID + 1_000_000_000, ...data },
-        update: data,
-      });
+      const legacyId = table === "EnrollmentForm" ? row.ID : row.ID + 1_000_000_000;
+      const ok = await safeUpsert(() =>
+        prisma.enrollmentForm.upsert({
+          where: { legacyId },
+          create: { legacyId, ...data },
+          update: data,
+        })
+      );
+      if (!ok) skipped++;
     }
   }
-  return total;
+  return { total, skipped };
 }
 
-async function syncEnrollmentFormHistory(pool: sql.ConnectionPool) {
+async function syncEnrollmentFormHistory(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.EnrollmentFormHistory");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = { studentId: row.StudentID, historyDate: row.HistoryDate, historyEvent: row.HistoryEvent };
-    await prisma.enrollmentFormHistory.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.enrollmentFormHistory.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncStudentArchive(pool: sql.ConnectionPool) {
+async function syncStudentArchive(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.StudentArchive");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = {
       studentId: row.StudentID,
@@ -695,32 +812,39 @@ async function syncStudentArchive(pool: sql.ConnectionPool) {
       enrollDate: row.EnrollDate,
       createDate: row.CreateDate,
     };
-    await prisma.studentArchive.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.studentArchive.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
-async function syncAuditLog(pool: sql.ConnectionPool) {
+async function syncAuditLog(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT ID, LogDate, UserName, LogEvent FROM dbo.AuditLog");
-  if (DRY_RUN) return recordset.length;
+  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
+  let skipped = 0;
   for (const row of recordset) {
     const data = { logDate: row.LogDate, userName: row.UserName, logEvent: row.LogEvent };
-    await prisma.auditLog.upsert({
-      where: { legacyId: row.ID },
-      create: { legacyId: row.ID, ...data },
-      update: data,
-    });
+    const ok = await safeUpsert(() =>
+      prisma.auditLog.upsert({
+        where: { legacyId: row.ID },
+        create: { legacyId: row.ID, ...data },
+        update: data,
+      })
+    );
+    if (!ok) skipped++;
   }
-  return recordset.length;
+  return { total: recordset.length, skipped };
 }
 
 // --- runner ---------------------------------------------------------------
 
-const JOBS: Array<[string, (pool: sql.ConnectionPool) => Promise<number>]> = [
+const JOBS: Array<[string, (pool: sql.ConnectionPool) => Promise<JobResult>]> = [
   ["SchoolYear", syncSchoolYear],
   ["Districts", syncDistricts],
   ["Schools", syncSchools],
@@ -751,18 +875,26 @@ const JOBS: Array<[string, (pool: sql.ConnectionPool) => Promise<number>]> = [
 async function main() {
   const pool = await getLegacyPool();
   console.log(`Connected to legacy SQL Server.${DRY_RUN ? " (dry run — no writes)" : ""}`);
+  let totalSkipped = 0;
   try {
     for (const [name, job] of JOBS) {
       if (!shouldRun(name)) continue;
       const start = Date.now();
-      const count = await job(pool);
-      console.log(`${name}: ${count} rows${DRY_RUN ? " (not written)" : " synced"} (${Date.now() - start}ms)`);
+      const { total, skipped } = await job(pool);
+      totalSkipped += skipped;
+      const synced = total - skipped;
+      const skipNote = skipped > 0 ? `, skipped ${skipped} (FK/unique violation)` : "";
+      console.log(`${name}: ${synced} rows${DRY_RUN ? " (not written)" : " synced"}${skipNote} (${Date.now() - start}ms)`);
     }
   } finally {
     await pool.close();
     await prisma.$disconnect();
   }
-  console.log("Done.");
+  if (totalSkipped > 0) {
+    console.log(`Done. ${totalSkipped} total rows skipped across all tables — see MIGRATION.md.`);
+  } else {
+    console.log("Done.");
+  }
 }
 
 main().catch((err) => {
