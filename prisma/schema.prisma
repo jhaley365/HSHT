@@ -166,9 +166,6 @@ model BillingCode {
   fee         Decimal? @db.Decimal(10, 2)
   active      Boolean  @default(true)
 
-  invoiceItems        InvoiceItem[]
-  studentInvoiceItems StudentInvoiceItem[]
-
   @@map("billing_codes")
 }
 
@@ -188,12 +185,10 @@ model Activity {
   preets        String? // legacy PREETS — meaning unconfirmed
   coordinatorId Int? // legacy HSHTCoordinator (int) — references Coordinator.legacyId
 
-  school              School               @relation(fields: [schoolId], references: [legacyId])
-  details             ActivityDetail[]
-  studentActivities   StudentActivity[]
-  invoices            Invoice[]
-  invoiceItems        InvoiceItem[]
-  studentInvoiceItems StudentInvoiceItem[]
+  school            School            @relation(fields: [schoolId], references: [legacyId])
+  details           ActivityDetail[]
+  studentActivities StudentActivity[]
+  invoices          Invoice[]
 
   @@index([schoolId])
   @@map("activities")
@@ -224,16 +219,21 @@ model ActivityDetail {
   other           Boolean @default(false)
   otherDetail     String?
 
-  activity            Activity             @relation(fields: [activityId], references: [legacyId])
-  activityItem        ActivityItem         @relation(fields: [activityItemId], references: [activityItemId])
-  invoiceItems        InvoiceItem[]
-  studentInvoiceItems StudentInvoiceItem[]
+  activity     Activity     @relation(fields: [activityId], references: [legacyId])
+  activityItem ActivityItem @relation(fields: [activityItemId], references: [activityItemId])
 
   @@index([activityId])
   @@index([activityItemId])
   @@map("activity_details")
 }
 
+// Invoicing (Invoices/InvoiceItems/StudentInvoiceItems, billing codes/fees)
+// was scaffolded in the legacy system but never actually used in production
+// — confirmed by the client. InvoiceItem and StudentInvoiceItem are not
+// modeled here for that reason (their legacy rows are broken test/setup
+// data, not real history — see MIGRATION.md); a real invoicing feature
+// should be designed fresh rather than migrated from this. Invoice itself is
+// kept (harmless, tiny — 19 rows) in case it's ever useful for reference.
 model Invoice {
   id          String    @id @default(cuid())
   legacyId    Int       @unique
@@ -245,33 +245,10 @@ model Invoice {
   closed      Boolean   @default(false)
   status      String?
 
-  activity            Activity?            @relation(fields: [activityId], references: [legacyId])
-  invoiceItems        InvoiceItem[]
-  studentActivities   StudentActivity[]
-  studentInvoiceItems StudentInvoiceItem[]
+  activity          Activity?         @relation(fields: [activityId], references: [legacyId])
+  studentActivities StudentActivity[]
 
   @@map("invoices")
-}
-
-model InvoiceItem {
-  id                String   @id @default(cuid())
-  legacyId          Int      @unique
-  invoiceId         Int
-  activityId        Int
-  activityDetailsId Int
-  billingCodeId     Int?
-  fee               Decimal? @db.Decimal(10, 2)
-  quantity          Decimal? @db.Decimal(10, 2)
-  billed            Boolean  @default(false)
-  deleted           Boolean  @default(false)
-
-  invoice        Invoice        @relation(fields: [invoiceId], references: [legacyId])
-  activity       Activity       @relation(fields: [activityId], references: [legacyId])
-  activityDetail ActivityDetail @relation(fields: [activityDetailsId], references: [legacyId])
-  billingCode    BillingCode?   @relation(fields: [billingCodeId], references: [legacyId])
-
-  @@index([invoiceId])
-  @@map("invoice_items")
 }
 
 model Student {
@@ -336,7 +313,6 @@ model Student {
   outcomes              StudentOutcome[]
   equipment             StudentEquipment[]
   programCodes          StudentProgramCode[]
-  invoiceItems          StudentInvoiceItem[]
   enrollmentFormHistory EnrollmentFormHistory[]
 
   @@index([schoolId])
@@ -396,30 +372,6 @@ model StudentActivity {
   @@index([activityId])
   @@index([studentId])
   @@map("student_activities")
-}
-
-model StudentInvoiceItem {
-  id                String   @id @default(cuid())
-  legacyId          Int      @unique
-  studentId         Int
-  invoiceId         Int
-  activityId        Int
-  activityDetailsId Int
-  billingCodeId     Int?
-  fee               Decimal? @db.Decimal(10, 2)
-  quantity          Decimal? @db.Decimal(10, 2)
-  billed            Boolean  @default(false)
-  deleted           Boolean  @default(false)
-
-  student        Student        @relation(fields: [studentId], references: [legacyId])
-  invoice        Invoice        @relation(fields: [invoiceId], references: [legacyId])
-  activity       Activity       @relation(fields: [activityId], references: [legacyId])
-  activityDetail ActivityDetail @relation(fields: [activityDetailsId], references: [legacyId])
-  billingCode    BillingCode?   @relation(fields: [billingCodeId], references: [legacyId])
-
-  @@index([studentId])
-  @@index([invoiceId])
-  @@map("student_invoice_items")
 }
 
 model StudentNote {

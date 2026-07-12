@@ -52,6 +52,10 @@ conversion, not a redesign.
 - **`Total_SchoolID`** — two columns (`TotalSchoolID`, `SchoolID`), purpose
   unclear from structure alone (possibly a materialized count/rollup). Ask
   the client; likely fine to drop and recompute via a query if it's a rollup.
+- **`InvoiceItems`, `StudentInvoiceItems`** — invoicing was scaffolded but
+  never actually used in production (confirmed by the client); these rows
+  are broken test/setup data, not real history. See "Confirmed against real
+  data" below for the full finding.
 
 ## Confirmed against real data (first sync test, 2026-07-12)
 
@@ -89,13 +93,29 @@ in the original schema, both now fixed:
   further; each one should get the same treatment as above (a quick
   read-only diagnostic against the real DB) rather than being assumed away.
 
+- **Invoicing was scaffolded but never actually used in production**
+  (confirmed by the client). `InvoiceItems` had 13,812 rows where 100% failed
+  on `ActivityDetailsID` (didn't match `ActivityDetails.ID` at all — not
+  found in the excluded `_BAK`/`_YEP` tables either, ruling out an
+  "archived" explanation) and 99.8% failed on `InvoiceID`; `StudentInvoiceItems`
+  (138,573 rows) showed the identical pattern. The 19 rows in `Invoices`
+  itself are setup artifacts, not real invoices — note `StartDate`/`EndDate`
+  values sitting at the classic never-populated placeholder `1900-01-01`.
+  **Decision**: `InvoiceItem` and `StudentInvoiceItem` are not modeled at all
+  (removed from `prisma/schema.prisma`) and not synced — there is no real
+  history to migrate here. A real invoicing feature should be designed fresh
+  against actual future data, not built on this. `Invoice` itself is kept
+  (harmless, tiny) in case it's ever useful for reference; `BillingCode` and
+  `Vendor` are kept for the same reason, though they're part of the same
+  unused feature and are of similarly low value.
+
 Row counts from the same dry-run (resolves open question #7 below — no
 `pgloader`/staged-ETL question, this is small enough for `sync-legacy.ts` to
 handle in one pass, a few seconds total): Districts 156, Schools 293,
-Students 20,276, StudentActivity 82,215, StudentInvoiceItems 138,573 (the
-largest table), StudentArchive 37,032, StudentProgramCode 32,048. Also
-notable: **`EnrollmentForms` (combined `EnrollmentForm` + `StudentEnrollmentForm`)
-is only 8 rows total** against 20,276 students — sharpens open question #6
+Students 20,276, StudentActivity 82,215, StudentArchive 37,032 (the largest
+*migrated* table), StudentProgramCode 32,048. Also notable:
+**`EnrollmentForms` (combined `EnrollmentForm` + `StudentEnrollmentForm`) is
+only 8 rows total** against 20,276 students — sharpens open question #6
 below; this looks like a rarely-used online form, not the primary intake path.
 
 **Lesson for the rest of this migration**: don't assume a legacy text/code

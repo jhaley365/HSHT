@@ -510,60 +510,10 @@ async function syncInvoices(pool: sql.ConnectionPool): Promise<JobResult> {
   return { total: recordset.length, skipped };
 }
 
-async function syncInvoiceItems(pool: sql.ConnectionPool): Promise<JobResult> {
-  const { recordset } = await pool.request().query("SELECT * FROM dbo.InvoiceItems");
-  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
-  let skipped = 0;
-  for (const row of recordset) {
-    const data = {
-      invoiceId: row.InvoiceID,
-      activityId: row.ActivityID,
-      activityDetailsId: row.ActivityDetailsID,
-      billingCodeId: row.BillingCodeID ?? null,
-      fee: toDecimal(row.Fee),
-      quantity: toDecimal(row.Quantity),
-      billed: toBool(row.Billed),
-      deleted: toBool(row.Deleted),
-    };
-    const ok = await safeUpsert(() =>
-      prisma.invoiceItem.upsert({
-        where: { legacyId: row.ID },
-        create: { legacyId: row.ID, ...data },
-        update: data,
-      })
-    );
-    if (!ok) skipped++;
-  }
-  return { total: recordset.length, skipped };
-}
-
-async function syncStudentInvoiceItems(pool: sql.ConnectionPool): Promise<JobResult> {
-  const { recordset } = await pool.request().query("SELECT * FROM dbo.StudentInvoiceItems");
-  if (DRY_RUN) return { total: recordset.length, skipped: 0 };
-  let skipped = 0;
-  for (const row of recordset) {
-    const data = {
-      studentId: row.StudentID,
-      invoiceId: row.InvoiceID,
-      activityId: row.ActivityID,
-      activityDetailsId: row.ActivityDetailsID,
-      billingCodeId: row.BillingCodeID ?? null,
-      fee: toDecimal(row.Fee),
-      quantity: toDecimal(row.Quantity),
-      billed: toBool(row.Billed),
-      deleted: toBool(row.Deleted),
-    };
-    const ok = await safeUpsert(() =>
-      prisma.studentInvoiceItem.upsert({
-        where: { legacyId: row.ID },
-        create: { legacyId: row.ID, ...data },
-        update: data,
-      })
-    );
-    if (!ok) skipped++;
-  }
-  return { total: recordset.length, skipped };
-}
+// InvoiceItems and StudentInvoiceItems are deliberately not synced — the
+// invoicing feature was scaffolded in the legacy system but never actually
+// used in production (confirmed by the client), so these rows are broken
+// test/setup data, not real history. See MIGRATION.md.
 
 async function syncStudentNotes(pool: sql.ConnectionPool): Promise<JobResult> {
   const { recordset } = await pool.request().query("SELECT * FROM dbo.StudentNotes");
@@ -858,8 +808,6 @@ const JOBS: Array<[string, (pool: sql.ConnectionPool) => Promise<JobResult>]> = 
   ["Students", syncStudents],
   ["StudentActivity", syncStudentActivity],
   ["Invoices", syncInvoices],
-  ["InvoiceItems", syncInvoiceItems],
-  ["StudentInvoiceItems", syncStudentInvoiceItems],
   ["StudentNotes", syncStudentNotes],
   ["StudentHistory", syncStudentHistory],
   ["StudentOutcome", syncStudentOutcome],
