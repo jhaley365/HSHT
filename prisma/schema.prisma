@@ -39,7 +39,13 @@ model SchoolYear {
 model District {
   id          String  @id @default(cuid())
   legacyId    Int     @unique
-  districtId  String  @unique // legacy DistrictID (natural key schools reference)
+  // legacy DistrictID — a short display code (e.g. "BART"), NOT a unique
+  // key: confirmed against real data that distinct districts can share one
+  // (e.g. "Bartow County School District" and "Cartersville City Schools"
+  // both show "BART" — codes were derived from the county name, not from
+  // district identity). Schools.DID references District.ID (legacyId
+  // below), not this code — verified against real data.
+  code        String
   name        String
   county      String
   active      Boolean @default(true)
@@ -50,6 +56,7 @@ model District {
 
   schools School[]
 
+  @@index([code])
   @@map("districts")
 }
 
@@ -58,8 +65,8 @@ model District {
 model School {
   id             String  @id @default(cuid())
   legacyId       Int     @unique
-  districtId     String // FK -> District.districtId (legacy DID)
-  schoolCode     String  @unique
+  districtId     Int // FK -> District.legacyId (legacy DID column is varchar but holds District.ID, not the DistrictID code — verified against real data)
+  schoolCode     String
   name           String
   streetAddress  String
   city           String
@@ -99,7 +106,7 @@ model School {
   ss3 Int @default(0)
   ss4 Int @default(0)
 
-  district          District          @relation(fields: [districtId], references: [districtId])
+  district          District          @relation(fields: [districtId], references: [legacyId])
   students          Student[]
   activities        Activity[]
   studentActivities StudentActivity[]

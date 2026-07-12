@@ -53,6 +53,47 @@ conversion, not a redesign.
   unclear from structure alone (possibly a materialized count/rollup). Ask
   the client; likely fine to drop and recompute via a query if it's a rollup.
 
+## Confirmed against real data (first sync test, 2026-07-12)
+
+Running `scripts/sync-legacy.ts` against the real legacy database (dry-run,
+then a real test on `Districts`/`Schools`) surfaced two incorrect assumptions
+in the original schema, both now fixed:
+
+- **`Schools.DID` references `Districts.ID` (the numeric surrogate key), not
+  `Districts.DistrictID` (the short text code).** Verified directly: all 293
+  schools' `DID` values match a `Districts.ID`, zero match `DistrictID`.
+  `DistrictID` codes are **not unique** — e.g. `BART` is shared by both
+  "Bartow County School District" and "Cartersville City Schools" (17 codes
+  are shared across 2-3 districts each, out of 156 total). The codes were
+  evidently derived from the county name, not from district identity, so a
+  county with both a county-wide and a city school district collide. Fixed:
+  `District.code` (renamed from `districtId`) is a plain indexed string, no
+  longer `@unique`; `School.districtId` is now an `Int` referencing
+  `District.legacyId`.
+- **`Schools.SchoolCode` is only unique *within* a district, and even
+  `(DID, SchoolCode)` together isn't fully unique** — 3 pairs of genuinely
+  different, active schools share both (e.g. `162-005` is both "Mt. Zion High
+  School" and "Riverdale High School"). So `School.legacyId` (the surrogate
+  `ID`) is the *only* reliable unique key on this table — no composite
+  natural key exists in the real data. `schoolCode` is a plain string,
+  intentionally with no uniqueness constraint.
+
+Row counts from the same dry-run (resolves open question #7 below — no
+`pgloader`/staged-ETL question, this is small enough for `sync-legacy.ts` to
+handle in one pass, a few seconds total): Districts 156, Schools 293,
+Students 20,276, StudentActivity 82,215, StudentInvoiceItems 138,573 (the
+largest table), StudentArchive 37,032, StudentProgramCode 32,048. Also
+notable: **`EnrollmentForms` (combined `EnrollmentForm` + `StudentEnrollmentForm`)
+is only 8 rows total** against 20,276 students — sharpens open question #6
+below; this looks like a rarely-used online form, not the primary intake path.
+
+**Lesson for the rest of this migration**: don't assume a legacy text/code
+column is a unique key just because it looks like one — verify against row
+counts before modeling a `@unique` constraint or a relation on it. The
+column-only schema export (no FK/index metadata) means every relationship
+inferred from naming should get this same verification treatment before
+the final migration, not just Districts/Schools.
+
 ## Open questions for the client
 
 1. **`All_Schools` vs `Schools`** — see above.

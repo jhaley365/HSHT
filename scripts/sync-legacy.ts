@@ -105,7 +105,7 @@ async function syncDistricts(pool: sql.ConnectionPool) {
   if (DRY_RUN) return recordset.length;
   for (const row of recordset) {
     const data = {
-      districtId: row.DistrictID,
+      code: row.DistrictID,
       name: row.DistrictName,
       county: row.County,
       active: toBool(row.Active),
@@ -128,7 +128,7 @@ async function syncSchools(pool: sql.ConnectionPool) {
   if (DRY_RUN) return recordset.length;
   for (const row of recordset) {
     const data = {
-      districtId: row.DID,
+      districtId: parseInt(row.DID, 10),
       schoolCode: row.SchoolCode,
       name: row.Name,
       streetAddress: row.StreetAddress,
