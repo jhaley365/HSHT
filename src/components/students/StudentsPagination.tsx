@@ -1,13 +1,6 @@
 import Link from "next/link";
-
-function buildHref(params: { q: string; status: string; page: number }) {
-  const sp = new URLSearchParams();
-  if (params.q) sp.set("q", params.q);
-  if (params.status !== "all") sp.set("status", params.status);
-  if (params.page > 1) sp.set("page", String(params.page));
-  const qs = sp.toString();
-  return qs ? `/students?${qs}` : "/students";
-}
+import { buildStudentsHref } from "@/lib/students-url";
+import type { StudentSortKey, SortDir, StudentStatusFilter } from "@/lib/students-queries";
 
 export function StudentsPagination({
   page,
@@ -15,12 +8,16 @@ export function StudentsPagination({
   total,
   q,
   status,
+  sort,
+  dir,
 }: {
   page: number;
   totalPages: number;
   total: number;
   q: string;
-  status: string;
+  status: StudentStatusFilter;
+  sort: StudentSortKey;
+  dir: SortDir;
 }) {
   return (
     <div className="flex items-center justify-between text-[12.5px]" style={{ color: "var(--muted)" }}>
@@ -29,7 +26,7 @@ export function StudentsPagination({
       </span>
       <div className="flex items-center gap-3">
         {page > 1 ? (
-          <Link href={buildHref({ q, status, page: page - 1 })} className="font-bold" style={{ color: "var(--accent)" }}>
+          <Link href={buildStudentsHref({ q, status, sort, dir, page: page - 1 })} className="font-bold" style={{ color: "var(--accent)" }}>
             Previous
           </Link>
         ) : (
@@ -39,7 +36,7 @@ export function StudentsPagination({
           Page {page} of {totalPages}
         </span>
         {page < totalPages ? (
-          <Link href={buildHref({ q, status, page: page + 1 })} className="font-bold" style={{ color: "var(--accent)" }}>
+          <Link href={buildStudentsHref({ q, status, sort, dir, page: page + 1 })} className="font-bold" style={{ color: "var(--accent)" }}>
             Next
           </Link>
         ) : (

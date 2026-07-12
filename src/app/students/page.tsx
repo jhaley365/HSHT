@@ -1,5 +1,12 @@
-import { getStudentsList, type StudentStatusFilter } from "@/lib/students-queries";
+import {
+  getStudentsList,
+  type StudentStatusFilter,
+  type StudentSortKey,
+  type SortDir,
+} from "@/lib/students-queries";
+import { DEFAULT_SORT, DEFAULT_DIR } from "@/lib/students-url";
 import { StudentsPagination } from "@/components/students/StudentsPagination";
+import { SortableHeader } from "@/components/students/SortableHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -10,23 +17,35 @@ function parseStatus(value: string | undefined): StudentStatusFilter {
   return value === "active" || value === "inactive" ? value : "all";
 }
 
+function parseSort(value: string | undefined): StudentSortKey {
+  return value === "type" || value === "firstName" || value === "school" ? value : DEFAULT_SORT;
+}
+
+function parseDir(value: string | undefined): SortDir {
+  return value === "desc" ? "desc" : DEFAULT_DIR;
+}
+
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; sort?: string; dir?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const q = params.q ?? "";
   const status = parseStatus(params.status);
+  const sort = parseSort(params.sort);
+  const dir = parseDir(params.dir);
   const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
 
-  const { students, total } = await getStudentsList({ q, status, page, pageSize: PAGE_SIZE });
+  const { students, total } = await getStudentsList({ q, status, sort, dir, page, pageSize: PAGE_SIZE });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="flex flex-1 flex-col gap-5">
       <div className="rounded-[14px] border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
         <form className="flex flex-wrap items-end gap-3" action="/students" method="get">
+          <input type="hidden" name="sort" value={sort} />
+          <input type="hidden" name="dir" value={dir} />
           <div className="min-w-[240px] flex-1">
             <label className="mb-1 block text-[12px] font-semibold" style={{ color: "var(--muted)" }}>
               Search by name or school
@@ -70,10 +89,10 @@ export default async function StudentsPage({
           className="grid px-5 py-3 text-[10.5px] font-extrabold uppercase tracking-[0.05em]"
           style={{ gridTemplateColumns: GRID_COLS, color: "var(--muted)" }}
         >
-          <span>Type</span>
-          <span>First Name</span>
-          <span>Last Name</span>
-          <span>School</span>
+          <SortableHeader label="Type" sortKey="type" currentSort={sort} currentDir={dir} q={q} status={status} />
+          <SortableHeader label="First Name" sortKey="firstName" currentSort={sort} currentDir={dir} q={q} status={status} />
+          <SortableHeader label="Last Name" sortKey="lastName" currentSort={sort} currentDir={dir} q={q} status={status} />
+          <SortableHeader label="School" sortKey="school" currentSort={sort} currentDir={dir} q={q} status={status} />
         </div>
 
         {students.length === 0 && (
@@ -96,7 +115,7 @@ export default async function StudentsPage({
         ))}
       </div>
 
-      <StudentsPagination page={page} totalPages={totalPages} total={total} q={q} status={status} />
+      <StudentsPagination page={page} totalPages={totalPages} total={total} q={q} status={status} sort={sort} dir={dir} />
     </div>
   );
 }
