@@ -86,46 +86,54 @@ conversion, not a redesign.
    database directly (state reporting exports, other internal tools) that
    needs to be repointed or given an equivalent export after cutover.
 
-## Data migration approach
+## Data migration approach: re-runnable sync, not a one-shot
 
-1. Get a full DDL export (not just columns) — ideally a `.bak` restorable to
-   a scratch SQL Server instance, or SSMS "Generate Scripts" output — so real
-   FK constraints, defaults, and any computed columns/triggers surface.
-2. Resolve the open questions above; update `prisma/schema.prisma` accordingly
-   (in particular: whether `All_Schools`/`Total_SchoolID` need modeling, and
-   whether `Coordinators`/`UserList` merge).
-3. Run `prisma migrate dev` to create the Postgres schema from the finalized
-   Prisma models.
-4. Migrate data with a custom ETL script (Node/TypeScript, `mssql` package to
-   read + `@prisma/client` to write) rather than a blind `pgloader` pass,
-   because:
-   - Legacy `Active`/flag columns are `varchar(1)`/`int` and need conversion
-     to `Boolean`.
-   - `Coordinators.Password` / `UserList.Password` are plaintext and must be
-     rehashed (e.g. bcrypt/argon2) during migration, never copied verbatim —
-     users will need a forced password reset since the plaintext values
-     can't ethically inform new hashes in a way that's actually secure
-     (reusing the same plaintext to seed a hash still means anyone with prior
-     access to the plaintext dump knows it).
-   - Several `varchar` columns that should be dates (`Students.EnterDate`) need
-     parsing/validation rather than a straight copy.
-5. Migrate in dependency order: `SchoolYear`, `Districts` → `Schools` →
-   `Coordinators`/`StaffUser` → `Students` → `Activity`/`ActivityItems` →
-   `ActivityDetails` → `StudentActivity` → `BillingCodes`/`Vendors` →
-   `Invoices`/`InvoiceItems`/`StudentInvoiceItems` → the remaining
-   student-detail tables (`StudentNotes`, `StudentHistory`, `StudentOutcome`,
-   `StudentEquipment`, `StudentProgramCode`) → `EnrollmentForm`/
-   `EnrollmentFormHistory` → `StudentArchive` (historical, can run last/in
-   the background) → `AuditLog`.
-6. Validate: row counts per table match, spot-check a sample of records
-   (especially money fields on invoices — Decimal precision defaults to
-   `(10,2)` in the new schema; confirm that matches real billing amounts),
-   and re-run the a11y/disability flag conversion (`char(1)` Y/N → Boolean)
-   against a manual sample.
-7. Cutover: freeze writes on the legacy system (maintenance window) or run a
-   delta sync if near-zero downtime is required, do the final sync, repoint
-   `DATABASE_URL`, deploy (see DEPLOYMENT.md), keep the legacy DB read-only as
-   a fallback for a period after cutover.
+Decided approach: the legacy SQL Server stays live and authoritative through
+development. `scripts/sync-legacy.ts` (`npm run sync:legacy`) is a **re-runnable,
+one-directional** sync — SQL Server → Postgres, upserting on `legacyId` — so it
+can be run repeatedly during development/testing to refresh Postgres with
+current legacy data, and the *same script* is the final sync at cutover.
+This is not continuous replication: Postgres is only as fresh as the last run,
+and once the new app is live for real writes, the sync must not run again (it
+would overwrite those writes). The client should be told explicitly that data
+in the new system is for testing/preview only until the final sync + cutover.
+
+It is implemented, typechecked, and its schema/migration have been verified
+end-to-end against a real Postgres instance (all 25 tables migrate cleanly via
+`prisma migrate dev`). It has **not** yet been run against the real legacy SQL
+Server (no network path to it from where this was built) — the first run against
+production data is where the open questions below (in particular the Y/N vs 1/0
+boolean encoding assumption in `toBool()`) get confirmed or corrected.
+
+**Running it:**
+```bash
+cp .env.example .env   # if not already done
+# set LEGACY_MSSQL_HOST / _USER / _PASSWORD / _DATABASE in .env
+npm install
+npm run sync:legacy -- --dry-run              # fetch + transform, no writes — check counts first
+npm run sync:legacy -- --only=Districts,Schools   # test one/a few tables at a time
+npm run sync:legacy                            # full sync
+```
+It only ever logs row **counts**, never field values — safe to paste its
+output anywhere, including back to Claude, since this data includes student
+PII (names, birthdates, disability status, race).
+
+**What it does NOT do** (still needs the open questions above resolved):
+- Does not touch `All_Schools`, `Total_SchoolID`, or `Audit` (excluded, see above).
+- Does not copy `Coordinators.Password` / `UserList.Password` — those accounts
+  sync with no password set; real auth + forced reset is separate work (below).
+- Assumes Y/N-or-1/0 for legacy boolean-ish columns (`toBool()` in the script)
+  — verify against the first real dry-run and adjust if the actual encoding
+  differs.
+- Treats `EnrollmentForm` and `StudentEnrollmentForm` as two `source`-tagged
+  rows in one table (see the open question above) — revisit if the client
+  clarifies they mean something more specific.
+
+**Final sync at cutover:** freeze writes on the legacy app (maintenance
+window), run `npm run sync:legacy` one last time, validate row counts, then
+that Postgres database is what the live app points at from then on — the
+sync script should not be run again afterward once real users are writing
+to it, since a later run would overwrite their data with stale legacy state.
 
 ## Auth
 
