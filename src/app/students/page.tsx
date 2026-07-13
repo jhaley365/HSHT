@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   getStudentsList,
   type StudentStatusFilter,
@@ -102,16 +103,17 @@ export default async function StudentsPage({
         )}
 
         {students.map((student) => (
-          <div
+          <Link
             key={student.id}
-            className="grid items-center border-t px-5 py-3 text-[13px]"
+            href={`/students/${student.id}`}
+            className="grid items-center border-t px-5 py-3 text-[13px] transition-colors hover:[background:var(--surface-2)]"
             style={{ gridTemplateColumns: GRID_COLS, borderColor: "var(--border)" }}
           >
             <span style={{ color: "var(--muted)" }}>{student.reportableStudent ? "Reportable" : "HS/HT"}</span>
             <span style={{ color: "var(--text)" }}>{student.firstName}</span>
             <span style={{ color: "var(--text)" }}>{student.lastName}</span>
             <span style={{ color: "var(--text)" }}>{student.school.name}</span>
-          </div>
+          </Link>
         ))}
       </div>
 
