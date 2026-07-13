@@ -171,6 +171,12 @@ history specifically.
 9. **Live integrations** — anything else reading/writing this SQL Server
    database directly (state reporting exports, other internal tools) that
    needs to be repointed or given an equivalent export after cutover.
+10. **`Students.EIP`** — the legacy student-detail UI labels this field "Do you
+    have an IEP?" but the column is named `EIP`. IEP (Individualized Education
+    Program) and EIP (a distinct Georgia early-intervention program) are not
+    the same thing. Confirm which one this field actually tracks — the new
+    Student Information tab currently labels it "EIP" (the honest column
+    name) pending an answer, rather than assuming it means IEP.
 
 ## Data migration approach: re-runnable sync, not a one-shot
 
