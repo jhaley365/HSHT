@@ -27,6 +27,11 @@ type DefaultSessionUser = {
 type AppAdapterUser = { id: string; role: UserRole; active: boolean };
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Self-hosted behind Caddy (not Vercel), so Auth.js can't infer a trusted
+  // host from platform env vars — without this it rejects every request
+  // with "UntrustedHost" (Caddy already terminates TLS and only forwards
+  // traffic for HSHT_DOMAIN, so there's no untrusted-host risk here).
+  trustHost: true,
   adapter: PrismaAdapter(prisma),
   session: { strategy: "database" },
   pages: {
