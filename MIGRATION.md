@@ -176,20 +176,22 @@ history specifically.
     column name, it tracks IEP status in practice. The Student Information
     tab now labels it "Do you have an IEP?" accordingly.
 11. **`Students.Gender`/`Race`/`EthnicHeritage`/`Grade` are coded as raw
-    integers with no lookup table anywhere in the schema** (e.g. a real
-    student showed `Gender=1`, `Race=3`, `EthnicHeritage=0`, `Grade=3`,
-    confirmed via the legacy UI to mean Male / Black or African American /
-    Not Hispanic or Latino / 10th Grade (Sophomore)). Since there's no
-    `Genders`/`Races`/etc. table in the source database, this mapping likely
-    only ever existed in the old app's front-end dropdowns — not
-    recoverable from the database alone. **Do not guess the rest of this
-    codebook, especially Race/Ethnicity** — get the definitive list from the
-    client (ideally the legacy app's actual source/dropdown definitions) or
-    reverse-engineer carefully by cross-referencing multiple real students
-    per code against the legacy UI. The Student Information tab currently
-    displays these four fields as raw, unlabeled codes — a known/expected
-    gap until the mapping is confirmed, not a bug to silently paper over
-    with a guess.
+    integers with no lookup table anywhere in the schema.** No
+    `Genders`/`Races`/etc. table exists in the source database — the mapping
+    only ever lived in the old app's front-end (ColdFusion templates).
+    - ~~**Race**~~ and ~~**Grade**~~ — **RESOLVED.** Recovered directly from
+      the legacy ColdFusion source (`cfif race EQ "..."` /
+      `cfif grade EQ "..."` blocks) and implemented in
+      `src/lib/legacy-codes.ts`: Race 1-5 = American Indian and Alaska
+      Native / Asian / Black/African American / Native Hawaiian and Other
+      Pacific Islander / White, 6 = Other (with the free-text `RaceOther`
+      value appended); Grade 1-6 = 8th / 9th (Freshman) / 10th (Sophomore) /
+      11th (Junior) / 12th (Senior) / Other (Out of School). Matches the
+      real student sample confirmed earlier (`Race=3`, `Grade=3`).
+    - **Gender** and **Ethnic Heritage** are still open — same approach
+      (pull the equivalent `cfif` blocks from the legacy template source)
+      should resolve them the same way. Don't guess in the meantime; the
+      Student Information tab still shows these two as raw codes.
 
 ## Data migration approach: re-runnable sync, not a one-shot
 
