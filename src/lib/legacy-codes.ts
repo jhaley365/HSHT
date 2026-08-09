@@ -14,6 +14,17 @@ export function formatGender(gender: string | null): string {
   return GENDER_LABELS[code] ?? code;
 }
 
+const ETHNIC_HERITAGE_LABELS: Record<string, string> = {
+  "1": "Hispanic or Latino",
+  "0": "Not Hispanic or Latino",
+};
+
+export function formatEthnicHeritage(ethnicHeritage: string | null): string {
+  const code = ethnicHeritage?.trim();
+  if (!code) return "—";
+  return ETHNIC_HERITAGE_LABELS[code] ?? code;
+}
+
 const RACE_LABELS: Record<string, string> = {
   "1": "American Indian and Alaska Native",
   "2": "Asian",

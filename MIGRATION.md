@@ -175,27 +175,25 @@ history specifically.
     app: it displays "Do you have an IEP?" for this column, so despite the
     column name, it tracks IEP status in practice. The Student Information
     tab now labels it "Do you have an IEP?" accordingly.
-11. **`Students.Gender`/`Race`/`EthnicHeritage`/`Grade` are coded as raw
-    integers with no lookup table anywhere in the schema.** No
-    `Genders`/`Races`/etc. table exists in the source database — the mapping
-    only ever lived in the old app's front-end (ColdFusion templates).
-    - ~~**Race**~~ and ~~**Grade**~~ — **RESOLVED.** Recovered directly from
-      the legacy ColdFusion source (`cfif race EQ "..."` /
-      `cfif grade EQ "..."` blocks) and implemented in
-      `src/lib/legacy-codes.ts`: Race 1-5 = American Indian and Alaska
-      Native / Asian / Black/African American / Native Hawaiian and Other
-      Pacific Islander / White, 6 = Other (with the free-text `RaceOther`
-      value appended); Grade 1-6 = 8th / 9th (Freshman) / 10th (Sophomore) /
-      11th (Junior) / 12th (Senior) / Other (Out of School). Matches the
-      real student sample confirmed earlier (`Race=3`, `Grade=3`).
-    - ~~**Gender**~~ — **RESOLVED.** `1 = Male`, `0 = Female`, confirmed by
-      the client and implemented in `src/lib/legacy-codes.ts`.
-    - **Ethnic Heritage** is still open — one confirmed data point
-      (`0 = Not Hispanic or Latino`) but the rest of the codebook isn't
-      confirmed. Same approach (pull the equivalent `cfif` block from the
-      legacy template source) should resolve it. Don't guess in the
-      meantime; the Student Information tab still shows this one as a raw
-      code.
+11. ~~**`Students.Gender`/`Race`/`EthnicHeritage`/`Grade` are coded as raw
+    integers with no lookup table anywhere in the schema.**~~ — **RESOLVED.**
+    No `Genders`/`Races`/etc. table exists in the source database — the
+    mapping only ever lived in the old app's front-end (ColdFusion
+    templates and client confirmation). All four implemented in
+    `src/lib/legacy-codes.ts`:
+    - **Race** 1-5 = American Indian and Alaska Native / Asian / Black/
+      African American / Native Hawaiian and Other Pacific Islander /
+      White, 6 = Other (with the free-text `RaceOther` value appended) —
+      recovered from `cfif race EQ "..."` in the legacy templates.
+    - **Grade** 1-6 = 8th / 9th (Freshman) / 10th (Sophomore) / 11th
+      (Junior) / 12th (Senior) / Other (Out of School) — recovered from
+      `cfif grade EQ "..."`.
+    - **Gender**: `1 = Male`, `0 = Female` — confirmed by the client.
+    - **Ethnic Heritage**: `1 = Hispanic or Latino`, `0 = Not Hispanic or
+      Latino` — confirmed by the client.
+    All four verified against real/seeded data including edge cases
+    (padded values, Race=6 + RaceOther, an unmapped grade code falling
+    back to its raw value).
 
 ## Data migration approach: re-runnable sync, not a one-shot
 
