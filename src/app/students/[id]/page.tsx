@@ -86,10 +86,10 @@ export default async function StudentInformationPage({ params }: { params: Promi
       </Section>
 
       <Section title="Internal Use">
-        {/* Legacy UI labels this "Do you have an IEP?" but the underlying
-            column is EIP (a distinct GA early-intervention program) — flagged
-            for confirmation, see MIGRATION.md open questions. */}
-        <InfoRow label="EIP" value={yesNo(student.eip)} />
+        {/* Confirmed against the live legacy app: the EIP column is used to
+            answer "Do you have an IEP?" in practice, despite the column
+            name — see MIGRATION.md. */}
+        <InfoRow label="Do you have an IEP?" value={yesNo(student.eip)} />
         <InfoRow label="504" value={yesNo(student.section504)} />
         <InfoRow label="Received Reportable Form?" value={yesNo(student.receivedForm)} />
         <InfoRow label="VR Caseload?" value={yesNo(student.vrCaseloadCheck)} />

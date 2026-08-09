@@ -171,12 +171,25 @@ history specifically.
 9. **Live integrations** — anything else reading/writing this SQL Server
    database directly (state reporting exports, other internal tools) that
    needs to be repointed or given an equivalent export after cutover.
-10. **`Students.EIP`** — the legacy student-detail UI labels this field "Do you
-    have an IEP?" but the column is named `EIP`. IEP (Individualized Education
-    Program) and EIP (a distinct Georgia early-intervention program) are not
-    the same thing. Confirm which one this field actually tracks — the new
-    Student Information tab currently labels it "EIP" (the honest column
-    name) pending an answer, rather than assuming it means IEP.
+10. ~~**`Students.EIP`**~~ — **RESOLVED.** Confirmed against the live legacy
+    app: it displays "Do you have an IEP?" for this column, so despite the
+    column name, it tracks IEP status in practice. The Student Information
+    tab now labels it "Do you have an IEP?" accordingly.
+11. **`Students.Gender`/`Race`/`EthnicHeritage`/`Grade` are coded as raw
+    integers with no lookup table anywhere in the schema** (e.g. a real
+    student showed `Gender=1`, `Race=3`, `EthnicHeritage=0`, `Grade=3`,
+    confirmed via the legacy UI to mean Male / Black or African American /
+    Not Hispanic or Latino / 10th Grade (Sophomore)). Since there's no
+    `Genders`/`Races`/etc. table in the source database, this mapping likely
+    only ever existed in the old app's front-end dropdowns — not
+    recoverable from the database alone. **Do not guess the rest of this
+    codebook, especially Race/Ethnicity** — get the definitive list from the
+    client (ideally the legacy app's actual source/dropdown definitions) or
+    reverse-engineer carefully by cross-referencing multiple real students
+    per code against the legacy UI. The Student Information tab currently
+    displays these four fields as raw, unlabeled codes — a known/expected
+    gap until the mapping is confirmed, not a bug to silently paper over
+    with a guess.
 
 ## Data migration approach: re-runnable sync, not a one-shot
 
