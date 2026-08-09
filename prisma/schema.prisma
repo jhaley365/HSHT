@@ -142,6 +142,77 @@ model StaffUser {
   @@map("staff_users")
 }
 
+// New app auth. Consolidates the two legacy login systems (Coordinators,
+// UserList — see MIGRATION.md "Auth") into one table with a role field.
+// Seeded once from Coordinator/StaffUser by scripts/seed-users.ts; not
+// touched by the re-runnable legacy sync itself. No passwords are migrated
+// — login is a magic link (email) sent via SMTP2GO, see src/auth.ts.
+enum UserRole {
+  VIEWER
+  STAFF
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  role          UserRole  @default(VIEWER)
+  emailVerified DateTime?
+  image         String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+// Auth.js (NextAuth) Prisma adapter schema — Account/Session/VerificationToken
+// are the adapter's required shape. Account stays empty in practice (no OAuth
+// providers configured, email-only), but the adapter interface expects it.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
 model Vendor {
   id         String  @id @default(cuid())
   legacyId   Int     @unique

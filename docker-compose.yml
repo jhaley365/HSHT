@@ -25,8 +25,13 @@ services:
       db:
         condition: service_healthy
 
-  # One-off tool container for scripts/sync-legacy.ts — not started by `up`.
-  # Run with: docker compose run --rm sync npm run sync:legacy -- --dry-run
+  # One-off tool container for scripts/sync-legacy.ts and scripts/seed-users.ts
+  # — not started by `up` (the `app` image is a minimal standalone build with
+  # no scripts/ dir or dev deps like tsx; this one builds from the `builder`
+  # stage instead, same as `migrate`).
+  # Run with:
+  #   docker compose run --rm sync npm run sync:legacy -- --dry-run
+  #   docker compose run --rm sync npm run seed:users -- --dry-run
   sync:
     build:
       context: .
@@ -46,6 +51,9 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-hsht}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-hsht}?schema=public
       AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      EMAIL_SERVER_HOST: ${EMAIL_SERVER_HOST:-mail.smtp2go.com}
+      EMAIL_SERVER_PORT: ${EMAIL_SERVER_PORT:-25}
+      EMAIL_FROM: ${EMAIL_FROM:?set EMAIL_FROM in .env}
     depends_on:
       db:
         condition: service_healthy

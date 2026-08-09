@@ -1,14 +1,30 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Menu, Sun, Moon, Search, Bell, ChevronDown } from "lucide-react";
+import { Menu, Sun, Moon, Search, Bell, LogOut } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
+import { signOutAction } from "@/lib/actions/auth-actions";
+
+export type CurrentUser = {
+  name?: string | null;
+  email?: string | null;
+  role: string;
+};
+
+function initialsFor(user: CurrentUser) {
+  const source = user.name?.trim() || user.email?.trim() || "?";
+  const parts = source.split(/[\s@.]+/).filter(Boolean);
+  const letters = (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "");
+  return (letters || source[0] || "?").toUpperCase();
+}
 
 export function Topbar({
+  user,
   theme,
   onToggleTheme,
   onToggleSidebar,
 }: {
+  user: CurrentUser;
   theme: "light" | "dark";
   onToggleTheme: (theme: "light" | "dark") => void;
   onToggleSidebar: () => void;
@@ -94,8 +110,7 @@ export function Topbar({
           </span>
         </button>
 
-        <button
-          type="button"
+        <div
           className="flex h-[38px] items-center gap-2 rounded-[10px] border py-0 pl-[6px] pr-2"
           style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
         >
@@ -103,13 +118,26 @@ export function Topbar({
             className="flex h-7 w-7 items-center justify-center rounded-[8px] text-[11px] font-extrabold text-white"
             style={{ background: "var(--primary)" }}
           >
-            HC
+            {initialsFor(user)}
           </div>
-          <span className="text-[12.5px] font-bold" style={{ color: "var(--text)" }}>
-            hcsupport
+          <span
+            className="max-w-[130px] truncate text-[12.5px] font-bold"
+            style={{ color: "var(--text)" }}
+            title={user.email ?? undefined}
+          >
+            {user.name || user.email}
           </span>
-          <ChevronDown size={14} style={{ color: "var(--muted)" }} />
-        </button>
+        </div>
+        <form action={signOutAction}>
+          <button
+            type="submit"
+            aria-label="Sign out"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border"
+            style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--muted)" }}
+          >
+            <LogOut size={17} />
+          </button>
+        </form>
       </div>
     </header>
   );

@@ -142,11 +142,10 @@ history specifically.
 ## Open questions for the client
 
 1. **`All_Schools` vs `Schools`** — see above.
-2. **`Coordinators` vs `UserList`** — two separate login tables (`Coordinators`
-   has Email/Password/Active; `UserList` has Email/Password/Active/AccessLevel).
-   Are these genuinely two different user populations (e.g. field coordinators
-   vs. internal admin staff), or should they consolidate into one `users` table
-   with a role field in the new app?
+2. ~~**`Coordinators` vs `UserList`**~~ — **RESOLVED.** Consolidate into one
+   `User` table with a role field (see "Auth" below); every migrated account
+   starts as `VIEWER`, and an admin promotes specific people to `STAFF`/
+   `ADMIN` afterward. `scripts/seed-users.ts` does the consolidation.
 3. **Acronyms** in `Schools`/`All_Schools`: all confirmed and labeled on the
    new School detail page. `VR` = Vocational Rehab Counselor, `LN` = HSHT
    Liaison, `SSL` = System Site Liaison. `SS1`-`SS4` are the "Site Sponsor"
@@ -248,7 +247,46 @@ to it, since a later run would overwrite their data with stale legacy state.
 ## Auth
 
 Neither legacy user table is a fit to migrate as-is (plaintext passwords).
-The new app should introduce real auth (e.g. Auth.js/NextAuth with a
-credentials provider backed by hashed passwords, or SSO if the client has
-an identity provider) and force a password reset for all migrated accounts
-rather than attempting to preserve/rehash the legacy plaintext values.
+**Decided approach**: no passwords are migrated at all — the new app uses
+Auth.js (NextAuth v5) with a magic-link **Email** provider (`src/auth.ts`).
+Signing in sends a one-time link to the user's email; there is no password
+to hash, reset, or leak.
+
+- **Delivery**: SMTP2GO, matching the pattern already used elsewhere for
+  this client — the VPS's public IP is whitelisted in SMTP2GO, so port 25
+  requires no username/password (`EMAIL_SERVER_HOST=mail.smtp2go.com`,
+  `EMAIL_SERVER_PORT=25`, no auth block). This only works from a host
+  SMTP2GO has actually whitelisted; it will fail to connect from an
+  arbitrary dev machine (confirmed — see "Still needs verification" below).
+- **User model**: `prisma/schema.prisma`'s `User` table (plus the
+  Auth.js-required `Account`/`Session`/`VerificationToken` tables) is
+  separate from the legacy-mirroring `Coordinator`/`StaffUser` staging
+  tables. `Coordinator`/`StaffUser` keep getting refreshed by the
+  re-runnable `sync:legacy` job; `User` is real app state and must never be
+  overwritten by that job.
+- **Consolidation**: `npm run seed:users` (`scripts/seed-users.ts`) is a
+  one-time-ish, idempotent step that reads `Coordinator` + `StaffUser` (so
+  run `sync:legacy` first) and creates a `User` row per unique email,
+  defaulting every new account to `VIEWER`. It never touches a `User` row
+  that already exists — safe to re-run, will not downgrade a role an admin
+  has since set or resurrect a deactivated account. An email present in
+  both legacy tables collapses to one `User` row; the script logs which
+  emails collided (these are staff/coordinator work addresses, not student
+  PII, so — unlike `sync-legacy.ts` — it's fine to log the actual values).
+- **Role gating**: `UserRole` is `VIEWER | STAFF | ADMIN`. Route-level
+  gating currently just requires *any* authenticated, active user (see
+  `src/app/(dashboard)/layout.tsx`) — none of the current pages need
+  finer-grained role checks yet (`utility`/`exports`/`reports` are still
+  "coming soon" stubs). Add per-role checks when those pages get real
+  (likely mutating) functionality.
+- **Deactivation**: the `signIn` callback in `src/auth.ts` rejects sign-in
+  for any `User` with `active = false`, so deactivating someone blocks a
+  still-valid magic link, not just future ones.
+
+**Still needs verification**: this was built and tested against a local
+Postgres with fake `Coordinator`/`StaffUser` rows (dedup, idempotent
+re-run, and the `active`-gate all confirmed working). It has **not** been
+exercised against the real SMTP2GO relay — same limitation as the legacy
+SQL Server sync, no network path to either from where this was built. The
+first real send should be tried right after the VPS's IP is confirmed
+whitelisted.

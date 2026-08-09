@@ -2,11 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
-import { Topbar } from "@/components/dashboard/Topbar";
+import { Topbar, type CurrentUser } from "@/components/dashboard/Topbar";
 
 const THEME_STORAGE_KEY = "hsht-dashboard-theme";
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function DashboardShell({
+  user,
+  children,
+}: {
+  user: CurrentUser;
+  children: React.ReactNode;
+}) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [collapsed, setCollapsed] = useState(false);
 
@@ -29,7 +35,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <div data-theme={theme} className="flex h-full">
       <Sidebar collapsed={collapsed} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar theme={theme} onToggleTheme={handleSetTheme} onToggleSidebar={() => setCollapsed((c) => !c)} />
+        <Topbar
+          user={user}
+          theme={theme}
+          onToggleTheme={handleSetTheme}
+          onToggleSidebar={() => setCollapsed((c) => !c)}
+        />
         <main className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 pb-[26px] pt-[22px]">{children}</main>
       </div>
     </div>

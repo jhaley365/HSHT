@@ -20,6 +20,8 @@
    - `AUTH_SECRET` — generate with `openssl rand -base64 32`.
    - `NEXT_PUBLIC_APP_URL` — e.g. `https://hsht.haley365.com`.
    - `HSHT_DOMAIN` — the domain Caddy should request a cert for, e.g. `hsht.haley365.com`.
+   - `EMAIL_SERVER_HOST` / `EMAIL_SERVER_PORT` / `EMAIL_FROM` — magic-link sign-in email, sent via SMTP2GO. Requires the VPS's public IP to be whitelisted in the SMTP2GO account first (no username/password needed once it is) — see MIGRATION.md "Auth".
+   - `LEGACY_MSSQL_*` — only needed when running `npm run sync:legacy` (see below); also requires this VPS's IP whitelisted on the legacy SQL Server.
 3. Build and start everything:
    ```bash
    docker compose up -d --build
@@ -81,8 +83,24 @@ repo, but worth knowing if you ever stand this up fresh elsewhere:
   `caddy` service's `environment:` block. Without that, Caddy silently
   issues a cert for `localhost` and never matches your real domain.
 
+## User accounts (magic-link sign-in)
+
+Auth is wired up (Auth.js Email provider via SMTP2GO — see MIGRATION.md
+"Auth"). Nobody can sign in, though, until the `User` table has rows. At
+first deploy, after the legacy data sync:
+
+```bash
+docker compose run --rm sync npm run sync:legacy   # refresh Coordinator/StaffUser staging tables
+docker compose run --rm sync npm run seed:users    # consolidate them into User (VIEWER by default)
+```
+
+Then promote specific people to `STAFF`/`ADMIN` directly in the database
+(e.g. `docker compose exec db psql -U hsht -d hsht -c "UPDATE users SET role='ADMIN' WHERE email='...';"`)
+— there's no admin UI for role management yet. `seed:users` is safe to
+re-run after future `sync:legacy` runs; it only adds new emails and never
+touches an existing `User` row.
+
 ## Open items to decide before production
 - **Domain**: `app.gacomm-enroll.org` (confirmed working, real Let's Encrypt cert issued).
 - **Backups**: where should off-site backups land (S3-compatible bucket, another server)?
-- **Auth**: who can log in and how (see MIGRATION.md's note on the legacy auth model) — this scaffold ships a `User` table with a role enum but no auth flow wired up yet.
 - **Monitoring**: at minimum, uptime checks against the public URL and disk-space alerts on the VPS (Postgres volume growth).

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import "./globals.css";
-import { DashboardShell } from "@/components/dashboard/DashboardShell";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -21,9 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${manrope.variable} h-full`}>
-      <body className="h-full antialiased">
-        <DashboardShell>{children}</DashboardShell>
-      </body>
+      <body className="h-full antialiased">{children}</body>
     </html>
   );
 }
