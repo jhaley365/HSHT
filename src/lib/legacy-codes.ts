@@ -54,3 +54,12 @@ export function formatGrade(grade: string | null): string {
   if (!code) return "—";
   return GRADE_LABELS[code] ?? code;
 }
+
+// School.ss1/ss2 flag which entity sponsors the site; ss3/ss4 are unused
+// (confirmed with the client) but carried over in the schema as-is.
+export function formatSiteSponsor(ss1: number, ss2: number): string {
+  const sponsors: string[] = [];
+  if (ss1 === 1) sponsors.push("School System");
+  if (ss2 === 1) sponsors.push("HSHT");
+  return sponsors.length ? sponsors.join(", ") : "—";
+}

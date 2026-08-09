@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getSchoolProfile } from "@/lib/schools-queries";
 import { Section } from "@/components/Section";
 import { InfoRow } from "@/components/InfoRow";
+import { formatSiteSponsor } from "@/lib/legacy-codes";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function SchoolDetailPage({ params }: { params: Promise<{ i
         <InfoRow label="School District" value={school.district.name} />
         <InfoRow label="School Code" value={`${school.district.code}-${school.schoolCode}`} />
         <InfoRow label="School Type" value={school.schoolType ?? "—"} />
+        <InfoRow label="Site Sponsor" value={formatSiteSponsor(school.ss1, school.ss2)} />
         <InfoRow label="Street Address" value={school.streetAddress} />
         <InfoRow label="City" value={school.city} />
         <InfoRow label="State" value={school.state} />
@@ -65,8 +67,7 @@ export default async function SchoolDetailPage({ params }: { params: Promise<{ i
       </Section>
 
       {/* legacy "SSL" fields, confirmed against the legacy UI to be the
-          System Site Liaison contact — see MIGRATION.md. "Site Sponsor"
-          (likely SS1-SS4) isn't shown yet — meaning unconfirmed. */}
+          System Site Liaison contact — see MIGRATION.md. */}
       <Section title="System Site Liaison">
         <InfoRow label="First Name" value={school.sslFirstName ?? "—"} />
         <InfoRow label="Last Name" value={school.sslLastName ?? "—"} />
