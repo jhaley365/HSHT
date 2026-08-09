@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getStudentProfile, getStudentOutcomes } from "@/lib/student-detail-queries";
-import { InfoRow } from "@/components/students/InfoRow";
+import { InfoRow } from "@/components/InfoRow";
 
 export const dynamic = "force-dynamic";
 

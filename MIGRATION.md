@@ -147,10 +147,11 @@ history specifically.
    Are these genuinely two different user populations (e.g. field coordinators
    vs. internal admin staff), or should they consolidate into one `users` table
    with a role field in the new app?
-3. **Unconfirmed acronyms** in `Schools`/`All_Schools`: `VR` (Vocational
-   Rehab?), `LN`, `SSL`, and `SS1`-`SS4` columns — need plain-English
-   definitions to label them properly in the new UI (carried over verbatim
-   in the schema for now).
+3. **Acronyms** in `Schools`/`All_Schools`: `VR` (Vocational Rehab Counselor),
+   `LN` (HSHT Liaison), and `SSL` (System Site Liaison) are now confirmed
+   against the legacy UI and labeled accordingly on the new School detail
+   page. Still open: `SS1`-`SS4` ("Site Sponsor: HSHT" in the legacy UI) —
+   client is checking and will provide the mapping.
 4. **`Activity.PREETS`** and **`ActivityDetails.HSHTCoordinator`** (stored as
    text there, vs. an int FK-shaped column of the same name on `Activity`) —
    confirm meaning/usage.

@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { getStudentProfile } from "@/lib/student-detail-queries";
 import { formatGender, formatRace, formatGrade, formatEthnicHeritage } from "@/lib/legacy-codes";
-import { InfoRow } from "@/components/students/InfoRow";
+import { InfoRow } from "@/components/InfoRow";
+import { Section } from "@/components/Section";
 
 export const dynamic = "force-dynamic";
 
@@ -22,17 +23,6 @@ const DISABILITY_FIELDS = [
 
 function yesNo(value: boolean) {
   return value ? "Yes" : "No";
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="border-t pt-4 first:border-t-0 first:pt-0" style={{ borderColor: "var(--border)" }}>
-      <div className="mb-1 text-[13px] font-extrabold" style={{ color: "var(--heading)" }}>
-        {title}
-      </div>
-      {children}
-    </div>
-  );
 }
 
 export default async function StudentInformationPage({ params }: { params: Promise<{ id: string }> }) {
