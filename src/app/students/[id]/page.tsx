@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getStudentProfile } from "@/lib/student-detail-queries";
-import { formatRace, formatGrade } from "@/lib/legacy-codes";
+import { formatGender, formatRace, formatGrade } from "@/lib/legacy-codes";
 
 export const dynamic = "force-dynamic";
 
@@ -56,8 +56,8 @@ export default async function StudentInformationPage({ params }: { params: Promi
   return (
     <div className="flex flex-col gap-4 rounded-[14px] border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
       <Section title="Classification">
-        {/* Gender/EthnicHeritage codes not yet confirmed — see MIGRATION.md. */}
-        <InfoRow label="Gender" value={student.gender ?? "—"} />
+        {/* EthnicHeritage code mapping not yet confirmed — see MIGRATION.md. */}
+        <InfoRow label="Gender" value={formatGender(student.gender)} />
         <InfoRow label="Race" value={formatRace(student.race, student.raceOther)} />
         <InfoRow label="Ethnic Heritage" value={student.ethnicHeritage ?? "—"} />
       </Section>

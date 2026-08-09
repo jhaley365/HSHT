@@ -188,10 +188,14 @@ history specifically.
       value appended); Grade 1-6 = 8th / 9th (Freshman) / 10th (Sophomore) /
       11th (Junior) / 12th (Senior) / Other (Out of School). Matches the
       real student sample confirmed earlier (`Race=3`, `Grade=3`).
-    - **Gender** and **Ethnic Heritage** are still open — same approach
-      (pull the equivalent `cfif` blocks from the legacy template source)
-      should resolve them the same way. Don't guess in the meantime; the
-      Student Information tab still shows these two as raw codes.
+    - ~~**Gender**~~ — **RESOLVED.** `1 = Male`, `0 = Female`, confirmed by
+      the client and implemented in `src/lib/legacy-codes.ts`.
+    - **Ethnic Heritage** is still open — one confirmed data point
+      (`0 = Not Hispanic or Latino`) but the rest of the codebook isn't
+      confirmed. Same approach (pull the equivalent `cfif` block from the
+      legacy template source) should resolve it. Don't guess in the
+      meantime; the Student Information tab still shows this one as a raw
+      code.
 
 ## Data migration approach: re-runnable sync, not a one-shot
 

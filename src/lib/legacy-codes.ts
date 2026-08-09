@@ -3,6 +3,17 @@
 // Grade and Race are stored padded (legacy nchar columns), so trim before
 // looking up.
 
+const GENDER_LABELS: Record<string, string> = {
+  "1": "Male",
+  "0": "Female",
+};
+
+export function formatGender(gender: string | null): string {
+  const code = gender?.trim();
+  if (!code) return "—";
+  return GENDER_LABELS[code] ?? code;
+}
+
 const RACE_LABELS: Record<string, string> = {
   "1": "American Indian and Alaska Native",
   "2": "Asian",
