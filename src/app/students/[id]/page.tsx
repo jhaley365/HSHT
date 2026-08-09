@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getStudentProfile } from "@/lib/student-detail-queries";
 import { formatGender, formatRace, formatGrade, formatEthnicHeritage } from "@/lib/legacy-codes";
+import { InfoRow } from "@/components/students/InfoRow";
 
 export const dynamic = "force-dynamic";
 
@@ -30,17 +31,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         {title}
       </div>
       {children}
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between border-t py-2 text-[13px] first:border-t-0" style={{ borderColor: "var(--border)" }}>
-      <span style={{ color: "var(--muted)" }}>{label}</span>
-      <span className="text-right" style={{ color: "var(--text)" }}>
-        {value}
-      </span>
     </div>
   );
 }
