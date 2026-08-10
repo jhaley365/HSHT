@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/authz";
 import { getSchoolsEnrollmentReport } from "@/lib/reports-queries";
 import { ReportToolbar } from "@/components/reports/ReportToolbar";
+import { CollapseExpandControls } from "@/components/reports/CollapseExpandControls";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,15 @@ export default async function SchoolsEnrollmentReportPage() {
     <div className="flex flex-1 flex-col gap-5">
       <ReportToolbar title="Schools — Enrollment Report" xlsxHref="/reports/schools-enrollment/export" />
 
-      <div className="text-[12.5px]" style={{ color: "var(--muted)" }}>
-        {schoolYear ? `Showing the ${schoolYear.label} school year` : "No current school year on file"} — {schools.length} school
-        {schools.length === 1 ? "" : "s"} with enrolled students
+      <div className="flex items-center justify-between">
+        <div className="text-[12.5px]" style={{ color: "var(--muted)" }}>
+          {schoolYear ? `Showing the ${schoolYear.label} school year` : "No current school year on file"} — {schools.length} school
+          {schools.length === 1 ? "" : "s"} with enrolled students
+        </div>
+        <CollapseExpandControls containerId="report-tree" />
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div id="report-tree" className="flex flex-col gap-3">
         {schools.length === 0 && (
           <div
             className="rounded-[14px] border px-5 py-10 text-center text-[13px]"
