@@ -32,7 +32,7 @@ export function DashboardShell({
   }
 
   return (
-    <div data-theme={theme} className="flex h-full">
+    <div data-theme={theme} className="flex h-full" style={{ background: "var(--app-bg)" }}>
       <div className="print:hidden">
         <Sidebar collapsed={collapsed} user={user} />
       </div>
