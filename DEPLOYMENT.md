@@ -110,6 +110,41 @@ Then promote specific people to `STAFF`/`ADMIN` directly in the database
 re-run after future `sync:legacy` runs; it only adds new emails and never
 touches an existing `User` row.
 
+## Scheduled legacy sync (cron)
+
+**Current phase only**: the legacy SQL Server is still authoritative while
+this app is being built out — staff keep working in the legacy system, and
+everyone understands data in this app is for comparison/testing until
+cutover (see MIGRATION.md). That makes a nightly *full* `sync:legacy` the
+right call for now: it's supposed to overwrite anything in Postgres with
+whatever's in the legacy database. **Once this app takes over the
+day-to-day workflow for real, stop this cron job** — at that point a full
+sync would silently revert real edits (e.g. an Activity someone closed or
+edited here gets reset back to the legacy row's values, since the sync
+upserts every field it recognizes). There's no `--only=` exclusion needed
+before that point; there will be after.
+
+Install the cron job (`ubuntu` user, VPS):
+```bash
+crontab -e
+```
+Add:
+```cron
+CRON_TZ=America/New_York
+0 4 * * * cd /home/ubuntu/hsht && /usr/bin/docker compose run --rm --build sync npm run sync:legacy > /home/ubuntu/hsht-sync.log 2>&1
+```
+`CRON_TZ` keeps this at 4am Eastern year-round (handles the EST/EDT
+switch automatically) rather than a fixed UTC offset that would drift an
+hour during daylight saving. Confirm `docker`'s path first with
+`which docker` — adjust the line if it's not `/usr/bin/docker`.
+
+`--build` is required on every `sync` invocation (see above — otherwise a
+stale image gets silently reused). The log is overwritten each run, not
+appended, so `~/hsht-sync.log` always holds just last night's output —
+check it if something seems off (e.g. a table's row count looks wrong,
+or a skip count jumps unexpectedly). Verify the job is installed with
+`crontab -l`.
+
 ## Open items to decide before production
 - **Domain**: `app.gacomm-enroll.org` (confirmed working, real Let's Encrypt cert issued).
 - **Backups**: where should off-site backups land (S3-compatible bucket, another server)?

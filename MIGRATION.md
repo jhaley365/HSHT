@@ -207,6 +207,15 @@ and once the new app is live for real writes, the sync must not run again (it
 would overwrite those writes). The client should be told explicitly that data
 in the new system is for testing/preview only until the final sync + cutover.
 
+**Automated nightly, for this phase only**: a cron job runs the full sync
+at 4am Eastern every night (see DEPLOYMENT.md "Scheduled legacy sync"),
+since legacy is still authoritative and staff know this app's data is
+comparison/testing only right now. This must be turned off once the app
+takes over real workflows — a full sync at that point would silently
+revert any edit made here to a legacy-sourced row (Activity, ActivityDetail,
+and StudentActivity's update payloads all include fields like `closed` /
+`deleted` that a nightly run would happily reset back to the legacy value).
+
 It is implemented, typechecked, and its schema/migration have been verified
 end-to-end against a real Postgres instance (all 25 tables migrate cleanly via
 `prisma migrate dev`). It has **not** yet been run against the real legacy SQL
