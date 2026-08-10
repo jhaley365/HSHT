@@ -33,7 +33,7 @@ export function DashboardShell({
 
   return (
     <div data-theme={theme} className="flex h-full">
-      <Sidebar collapsed={collapsed} />
+      <Sidebar collapsed={collapsed} user={user} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar
           user={user}

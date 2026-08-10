@@ -11,7 +11,7 @@ export type CurrentUser = {
   role: string;
 };
 
-function initialsFor(user: CurrentUser) {
+export function initialsFor(user: CurrentUser) {
   const source = user.name?.trim() || user.email?.trim() || "?";
   const parts = source.split(/[\s@.]+/).filter(Boolean);
   const letters = (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "");

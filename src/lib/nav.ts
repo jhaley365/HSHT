@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Upload,
   Settings,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
 
@@ -16,6 +17,7 @@ export type NavItem = {
   href: string;
   icon: LucideIcon;
   expandable?: boolean;
+  adminOnly?: boolean;
 };
 
 export const NAV_ITEMS: NavItem[] = [
@@ -28,4 +30,5 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Enrollment Forms", href: "/enrollment-forms", icon: ClipboardList },
   { label: "Exports", href: "/exports", icon: Upload, expandable: true },
   { label: "Utility", href: "/utility", icon: Settings, expandable: true },
+  { label: "Users", href: "/users", icon: UserCog, adminOnly: true },
 ];

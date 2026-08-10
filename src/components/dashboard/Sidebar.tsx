@@ -4,9 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
+import { initialsFor, type CurrentUser } from "@/components/dashboard/Topbar";
 
-export function Sidebar({ collapsed }: { collapsed: boolean }) {
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: "Administrator",
+  STAFF: "Staff",
+  VIEWER: "Viewer",
+};
+
+export function Sidebar({ collapsed, user }: { collapsed: boolean; user: CurrentUser }) {
   const pathname = usePathname();
+  const navItems = NAV_ITEMS.filter((item) => !item.adminOnly || user.role === "ADMIN");
 
   return (
     <aside
@@ -52,7 +60,7 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
       )}
 
       <nav className="flex flex-col gap-[3px]">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
@@ -92,15 +100,19 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
           className="flex h-8 w-8 flex-none items-center justify-center rounded-[9px] text-[11px] font-extrabold"
           style={{ background: "var(--c2s)", color: "var(--c2)" }}
         >
-          HC
+          {initialsFor(user)}
         </div>
         {!collapsed && (
           <div className="min-w-0 leading-tight">
-            <div className="truncate text-[12.5px] font-bold" style={{ color: "var(--sidebar-brand)" }}>
-              hcsupport
+            <div
+              className="truncate text-[12.5px] font-bold"
+              style={{ color: "var(--sidebar-brand)" }}
+              title={user.email ?? undefined}
+            >
+              {user.name || user.email}
             </div>
             <div className="text-[11px]" style={{ color: "var(--sidebar-muted)" }}>
-              Administrator
+              {ROLE_LABEL[user.role] ?? user.role}
             </div>
           </div>
         )}
