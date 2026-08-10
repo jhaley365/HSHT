@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/authz";
 import { getActivityById, getAssignedStudentsForSignIn } from "@/lib/activity-queries";
-import { PrintButton } from "@/components/activity/PrintButton";
+import { PrintButton } from "@/components/PrintButton";
 
 export const dynamic = "force-dynamic";
 

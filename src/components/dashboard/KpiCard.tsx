@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Building2, Network, User } from "lucide-react";
 import type { Kpi } from "@/lib/dashboard-data";
 
@@ -11,8 +12,9 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
   const Icon = ICONS[kpi.icon];
 
   return (
-    <div
-      className="rounded-[14px] border p-[18px] pb-4"
+    <Link
+      href={kpi.href}
+      className="block rounded-[14px] border p-[18px] pb-4 transition-shadow hover:shadow-md"
       style={{ background: "var(--surface)", borderColor: "var(--border)" }}
     >
       <div className="flex items-start justify-between">
@@ -37,6 +39,6 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
           <Icon size={22} strokeWidth={1.9} />
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

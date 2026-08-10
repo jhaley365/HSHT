@@ -8,6 +8,7 @@ export type Kpi = {
   value: string;
   icon: "org-tree" | "building" | "person";
   color: "c1" | "c2" | "c3" | "c4";
+  href: string;
 };
 
 export function getKpis(
@@ -29,6 +30,7 @@ export function getKpis(
       value: totalEnrolledThisYear.toLocaleString(),
       icon: "person",
       color: "c1",
+      href: "/reports/students",
     },
     {
       label: "Districts",
@@ -36,6 +38,7 @@ export function getKpis(
       value: `${stats.districtsWithStudents} / ${stats.totalDistricts}`,
       icon: "org-tree",
       color: "c2",
+      href: "/reports/districts-enrollment",
     },
     {
       label: "Schools",
@@ -43,6 +46,7 @@ export function getKpis(
       value: `${stats.schoolsWithStudents} / ${stats.totalSchools}`,
       icon: "building",
       color: "c3",
+      href: "/reports/schools-enrollment",
     },
     {
       label: "Districts",
@@ -50,6 +54,7 @@ export function getKpis(
       value: `${stats.districtsWithCompletedActivities} / ${stats.totalDistricts}`,
       icon: "org-tree",
       color: "c4",
+      href: "/reports/districts-activities",
     },
     {
       label: "Schools",
@@ -57,6 +62,7 @@ export function getKpis(
       value: `${stats.schoolsWithCompletedActivities} / ${stats.totalSchools}`,
       icon: "building",
       color: "c1",
+      href: "/reports/schools-activities",
     },
   ];
 }

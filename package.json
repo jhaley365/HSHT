@@ -19,6 +19,7 @@
     "@auth/prisma-adapter": "^2.11.3",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "exceljs": "^4.4.0",
     "lucide-react": "^1.24.0",
     "mssql": "^12.7.0",
     "next": "16.2.10",

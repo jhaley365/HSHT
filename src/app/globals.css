@@ -78,3 +78,19 @@ body {
   color: var(--text);
   font-family: var(--font-manrope), system-ui, sans-serif;
 }
+
+/* Reports drill-down (<details>/<summary>) — force every level open when
+   printing, overriding the UA stylesheet's `details:not([open]) > :not(summary)
+   { display: none }` so a printed report shows the full hierarchy regardless
+   of what the user had expanded on screen. */
+@media print {
+  details:not([open]) > *:not(summary) {
+    display: block !important;
+  }
+  details > summary {
+    list-style: none;
+  }
+  details > summary::-webkit-details-marker {
+    display: none;
+  }
+}
