@@ -1,9 +1,10 @@
-import { Building2, Network } from "lucide-react";
+import { Building2, Network, User } from "lucide-react";
 import type { Kpi } from "@/lib/dashboard-data";
 
 const ICONS = {
   building: Building2,
   "org-tree": Network,
+  person: User,
 };
 
 export function KpiCard({ kpi }: { kpi: Kpi }) {

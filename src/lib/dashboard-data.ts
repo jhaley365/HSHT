@@ -6,46 +6,56 @@ export type Kpi = {
   label: string;
   sublabel: string;
   value: string;
-  icon: "org-tree" | "building";
+  icon: "org-tree" | "building" | "person";
   color: "c1" | "c2" | "c3" | "c4";
 };
 
-export function getKpis(stats: {
-  totalDistricts: number;
-  totalSchools: number;
-  districtsWithStudents: number;
-  schoolsWithStudents: number;
-  districtsWithCompletedActivities: number;
-  schoolsWithCompletedActivities: number;
-}): Kpi[] {
+export function getKpis(
+  stats: {
+    totalDistricts: number;
+    totalSchools: number;
+    districtsWithStudents: number;
+    schoolsWithStudents: number;
+    districtsWithCompletedActivities: number;
+    schoolsWithCompletedActivities: number;
+  },
+  totalEnrolledThisYear: number
+): Kpi[] {
   return [
+    {
+      label: "Students",
+      sublabel: "Enrolled this school year",
+      value: totalEnrolledThisYear.toLocaleString(),
+      icon: "person",
+      color: "c1",
+    },
     {
       label: "Districts",
       sublabel: "Have enrolled students",
       value: `${stats.districtsWithStudents} / ${stats.totalDistricts}`,
       icon: "org-tree",
-      color: "c1",
+      color: "c2",
     },
     {
       label: "Schools",
       sublabel: "Have enrolled students",
       value: `${stats.schoolsWithStudents} / ${stats.totalSchools}`,
       icon: "building",
-      color: "c2",
+      color: "c3",
     },
     {
       label: "Districts",
       sublabel: "Have completed activities",
       value: `${stats.districtsWithCompletedActivities} / ${stats.totalDistricts}`,
       icon: "org-tree",
-      color: "c3",
+      color: "c4",
     },
     {
       label: "Schools",
       sublabel: "Have completed activities",
       value: `${stats.schoolsWithCompletedActivities} / ${stats.totalSchools}`,
       icon: "building",
-      color: "c4",
+      color: "c1",
     },
   ];
 }

@@ -17,11 +17,11 @@ export default async function Home() {
     getEnrollmentTrend(),
     getUpcomingOpenActivities(),
   ]);
-  const kpis = getKpis(coverage);
+  const kpis = getKpis(coverage, trend.totalEnrolled);
 
   return (
     <>
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         {kpis.map((kpi, i) => (
           <KpiCard key={i} kpi={kpi} />
         ))}
