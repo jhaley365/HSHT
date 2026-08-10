@@ -78,6 +78,38 @@ export async function getActivityById(id: string) {
   return { activity, coordinator, vendorNameByCode };
 }
 
+// Full active roster at the activity's school, flagged with whether each
+// student already has a (non-deleted) StudentActivity row for this
+// activity — backs the "Students Assigned" checklist on the detail page.
+export async function getSchoolRosterWithAssignment(activityLegacyId: number, schoolId: number) {
+  const [students, assignments] = await Promise.all([
+    prisma.student.findMany({
+      where: { schoolId, active: true },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    }),
+    prisma.studentActivity.findMany({
+      where: { activityId: activityLegacyId, deleted: false },
+      select: { studentId: true },
+    }),
+  ]);
+  const assignedIds = new Set(assignments.map((a) => a.studentId));
+  return students.map((s) => ({ ...s, assigned: assignedIds.has(s.legacyId) }));
+}
+
+// Just the assigned students, in sign-in-sheet order — used by the
+// printable sheet, which doesn't need the rest of the school roster.
+export async function getAssignedStudentsForSignIn(activityLegacyId: number) {
+  const assignments = await prisma.studentActivity.findMany({
+    where: { activityId: activityLegacyId, deleted: false },
+    include: { student: true },
+  });
+  return assignments
+    .map((a) => a.student)
+    .sort(
+      (a, b) => (a.lastName ?? "").localeCompare(b.lastName ?? "") || (a.firstName ?? "").localeCompare(b.firstName ?? "")
+    );
+}
+
 export async function getVendorsList() {
   return prisma.vendor.findMany({ orderBy: { vendorCode: "asc" } });
 }

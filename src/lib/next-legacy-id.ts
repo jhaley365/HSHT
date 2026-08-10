@@ -11,7 +11,7 @@ import type { Prisma } from "@/generated/prisma/client";
 // 10,000s as of this writing).
 const APP_CREATED_ID_FLOOR = 9_000_000;
 
-type LegacyIdModel = "activity" | "activityDetail" | "vendor";
+type LegacyIdModel = "activity" | "activityDetail" | "vendor" | "studentActivity";
 
 export async function nextLegacyId(tx: Prisma.TransactionClient, model: LegacyIdModel): Promise<number> {
   const { _max } =
@@ -19,6 +19,8 @@ export async function nextLegacyId(tx: Prisma.TransactionClient, model: LegacyId
       ? await tx.activity.aggregate({ _max: { legacyId: true } })
       : model === "activityDetail"
         ? await tx.activityDetail.aggregate({ _max: { legacyId: true } })
-        : await tx.vendor.aggregate({ _max: { legacyId: true } });
+        : model === "vendor"
+          ? await tx.vendor.aggregate({ _max: { legacyId: true } })
+          : await tx.studentActivity.aggregate({ _max: { legacyId: true } });
   return Math.max((_max.legacyId ?? 0) + 1, APP_CREATED_ID_FLOOR);
 }

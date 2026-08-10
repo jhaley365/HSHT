@@ -33,15 +33,19 @@ export function DashboardShell({
 
   return (
     <div data-theme={theme} className="flex h-full">
-      <Sidebar collapsed={collapsed} user={user} />
+      <div className="print:hidden">
+        <Sidebar collapsed={collapsed} user={user} />
+      </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar
-          user={user}
-          theme={theme}
-          onToggleTheme={handleSetTheme}
-          onToggleSidebar={() => setCollapsed((c) => !c)}
-        />
-        <main className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 pb-[26px] pt-[22px]">{children}</main>
+        <div className="print:hidden">
+          <Topbar
+            user={user}
+            theme={theme}
+            onToggleTheme={handleSetTheme}
+            onToggleSidebar={() => setCollapsed((c) => !c)}
+          />
+        </div>
+        <main className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 pb-[26px] pt-[22px] print:overflow-visible print:p-0">{children}</main>
       </div>
     </div>
   );
