@@ -18,6 +18,7 @@ export function getKpis(
     schoolsWithStudents: number;
     districtsWithCompletedActivities: number;
     schoolsWithCompletedActivities: number;
+    schoolYearLabel: string | null;
   },
   totalEnrolledThisYear: number
 ): Kpi[] {

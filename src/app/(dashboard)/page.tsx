@@ -21,6 +21,12 @@ export default async function Home() {
 
   return (
     <>
+      {coverage.schoolYearLabel && (
+        <div className="text-[12.5px]" style={{ color: "var(--muted)" }}>
+          All figures below reflect the {coverage.schoolYearLabel} school year
+        </div>
+      )}
+
       <div className="grid grid-cols-5 gap-4">
         {kpis.map((kpi, i) => (
           <KpiCard key={i} kpi={kpi} />

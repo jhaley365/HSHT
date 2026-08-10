@@ -5,7 +5,16 @@ import { getCurrentSchoolYear } from "@/lib/school-year";
 // "Reach" metrics for the Home dashboard KPI row — how many districts/
 // schools actually have enrolled students or a completed activity, not
 // just raw totals (that's what the client asked to see instead of totals).
+// Scoped to the current school year throughout, same as the Enrollment
+// Summary chart and the Activity List's Open filter: "enrolled" means
+// Student.enrollDate falls in this school year, "completed" means a
+// closed Activity whose activityDate falls in this school year.
 export async function getCoverageStats() {
+  const schoolYear = await getCurrentSchoolYear();
+  const dateFilter = schoolYear?.beginDate
+    ? { gte: schoolYear.beginDate, lte: schoolYear.endDate ?? undefined }
+    : undefined;
+
   const [
     totalDistricts,
     totalSchools,
@@ -16,12 +25,21 @@ export async function getCoverageStats() {
   ] = await Promise.all([
     prisma.district.count({ where: { active: true } }),
     prisma.school.count({ where: { active: true } }),
-    prisma.district.count({ where: { active: true, schools: { some: { students: { some: { active: true } } } } } }),
-    prisma.school.count({ where: { active: true, students: { some: { active: true } } } }),
     prisma.district.count({
-      where: { active: true, schools: { some: { activities: { some: { closed: true, deleted: false } } } } },
+      where: { active: true, schools: { some: { students: { some: { active: true, enrollDate: dateFilter } } } } },
     }),
-    prisma.school.count({ where: { active: true, activities: { some: { closed: true, deleted: false } } } }),
+    prisma.school.count({
+      where: { active: true, students: { some: { active: true, enrollDate: dateFilter } } },
+    }),
+    prisma.district.count({
+      where: {
+        active: true,
+        schools: { some: { activities: { some: { closed: true, deleted: false, activityDate: dateFilter } } } },
+      },
+    }),
+    prisma.school.count({
+      where: { active: true, activities: { some: { closed: true, deleted: false, activityDate: dateFilter } } },
+    }),
   ]);
 
   return {
@@ -31,6 +49,7 @@ export async function getCoverageStats() {
     schoolsWithStudents,
     districtsWithCompletedActivities,
     schoolsWithCompletedActivities,
+    schoolYearLabel: schoolYear?.label ?? null,
   };
 }
 
