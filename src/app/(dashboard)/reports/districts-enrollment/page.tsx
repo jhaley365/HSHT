@@ -36,7 +36,6 @@ export default async function DistrictsEnrollmentReportPage() {
           return (
             <details
               key={district.id}
-              open
               className="rounded-[14px] border print:break-inside-avoid"
               style={{ background: "var(--surface)", borderColor: "var(--border)" }}
             >
@@ -46,7 +45,7 @@ export default async function DistrictsEnrollmentReportPage() {
 
               <div className="flex flex-col gap-2 border-t px-5 py-3" style={{ borderColor: "var(--border)" }}>
                 {district.schools.map((school) => (
-                  <details key={school.id} open className="rounded-[10px] border ml-2 print:break-inside-avoid" style={{ borderColor: "var(--border)" }}>
+                  <details key={school.id} className="rounded-[10px] border ml-2 print:break-inside-avoid" style={{ borderColor: "var(--border)" }}>
                     <summary className="cursor-pointer px-4 py-2.5 text-[13px] font-bold" style={{ color: "var(--text)" }}>
                       {school.name} <span className="font-normal" style={{ color: "var(--muted)" }}>— {school.students.length} student{school.students.length === 1 ? "" : "s"}</span>
                     </summary>

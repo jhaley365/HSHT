@@ -34,7 +34,6 @@ export default async function SchoolsEnrollmentReportPage() {
         {schools.map((school) => (
           <details
             key={school.id}
-            open
             className="rounded-[14px] border print:break-inside-avoid"
             style={{ background: "var(--surface)", borderColor: "var(--border)" }}
           >

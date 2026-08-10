@@ -36,7 +36,6 @@ export default async function DistrictsActivitiesReportPage() {
           return (
             <details
               key={district.id}
-              open
               className="rounded-[14px] border print:break-inside-avoid"
               style={{ background: "var(--surface)", borderColor: "var(--border)" }}
             >
@@ -50,7 +49,7 @@ export default async function DistrictsActivitiesReportPage() {
               <div className="flex flex-col gap-2 border-t px-5 py-3" style={{ borderColor: "var(--border)" }}>
                 {district.schools.map((school) =>
                   school.activities.map((activity) => (
-                    <details key={activity.id} open className="rounded-[10px] border ml-2 print:break-inside-avoid" style={{ borderColor: "var(--border)" }}>
+                    <details key={activity.id} className="rounded-[10px] border ml-2 print:break-inside-avoid" style={{ borderColor: "var(--border)" }}>
                       <summary className="cursor-pointer px-4 py-2.5 text-[13px] font-bold" style={{ color: "var(--text)" }}>
                         {activity.name}{" "}
                         <span className="font-normal" style={{ color: "var(--muted)" }}>
