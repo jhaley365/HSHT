@@ -23,13 +23,15 @@ export default async function ActivityListPage({
   const status = parseStatus(params.status);
   const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
 
-  const { activities, total, pageSize } = await getActivitiesList({ status, page });
+  const { activities, total, pageSize, schoolYear } = await getActivitiesList({ status, page });
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div className="flex flex-1 flex-col gap-5">
       <div className="flex items-center justify-between">
-        <div />
+        <div className="text-[12.5px]" style={{ color: "var(--muted)" }}>
+          {status === "open" && schoolYear && `Showing the ${schoolYear.label} school year`}
+        </div>
         <form className="flex items-center gap-2" action="/activity/list" method="get">
           <label className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }}>
             Status:

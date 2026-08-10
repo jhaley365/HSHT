@@ -1,6 +1,21 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 
 export type ActivityStatusFilter = "open" | "closed";
+
+// The legacy SchoolYear table is a fixed, non-overlapping July 1 - June 30
+// sequence (confirmed against real data). "Current" is whichever row's
+// range contains today; if today falls outside every synced range (e.g.
+// the sync is stale), fall back to the most recent one rather than
+// scoping to nothing.
+export async function getCurrentSchoolYear() {
+  const now = new Date();
+  const current = await prisma.schoolYear.findFirst({
+    where: { beginDate: { lte: now }, endDate: { gte: now } },
+  });
+  if (current) return current;
+  return prisma.schoolYear.findFirst({ orderBy: { beginDate: "desc" } });
+}
 
 export async function getActivityItemsGrouped() {
   const items = await prisma.activityItem.findMany({
@@ -43,7 +58,20 @@ export async function getVendorOptions() {
 const ACTIVITY_PAGE_SIZE = 25;
 
 export async function getActivitiesList({ status, page }: { status: ActivityStatusFilter; page: number }) {
-  const where = { deleted: false, closed: status === "closed" };
+  const where: Prisma.ActivityWhereInput = { deleted: false, closed: status === "closed" };
+
+  // "Open" means currently active — scope it to the current school year so
+  // legacy rows that were simply never marked closed (some go back to
+  // 2018) don't clutter the list. "Closed" stays unscoped since browsing
+  // closed activities across all years is legitimate historical lookup.
+  let schoolYear = null;
+  if (status === "open") {
+    schoolYear = await getCurrentSchoolYear();
+    if (schoolYear) {
+      where.activityDate = { gte: schoolYear.beginDate ?? undefined, lte: schoolYear.endDate ?? undefined };
+    }
+  }
+
   const [activities, total] = await Promise.all([
     prisma.activity.findMany({
       where,
@@ -54,7 +82,7 @@ export async function getActivitiesList({ status, page }: { status: ActivityStat
     }),
     prisma.activity.count({ where }),
   ]);
-  return { activities, total, pageSize: ACTIVITY_PAGE_SIZE };
+  return { activities, total, pageSize: ACTIVITY_PAGE_SIZE, schoolYear };
 }
 
 export async function getActivityById(id: string) {
