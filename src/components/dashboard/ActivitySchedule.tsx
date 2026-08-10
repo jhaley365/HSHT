@@ -1,17 +1,11 @@
-import { getActivitySchedule, getWeeklyActivityBars } from "@/lib/dashboard-data";
+import Link from "next/link";
+import type { getUpcomingOpenActivities } from "@/lib/activity-queries";
 
-const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
-  Active: { color: "var(--positive)", bg: "var(--positive-soft)" },
-  Pending: { color: "var(--c3)", bg: "var(--c3s)" },
-  Closed: { color: "var(--muted)", bg: "var(--surface-2)" },
-};
+type Activities = Awaited<ReturnType<typeof getUpcomingOpenActivities>>;
 
 const GRID_COLS = "36px 92px 1.1fr 1.2fr 1.4fr 88px";
 
-export function ActivitySchedule() {
-  const rows = getActivitySchedule();
-  const bars = getWeeklyActivityBars();
-
+export function ActivitySchedule({ activities, schoolYearLabel }: { activities: Activities; schoolYearLabel: string | null }) {
   return (
     <div
       className="overflow-hidden rounded-[14px] border"
@@ -23,81 +17,65 @@ export function ActivitySchedule() {
             Activity Schedule
           </div>
           <div className="text-[11.5px]" style={{ color: "var(--muted)" }}>
-            Weekly summary
+            {schoolYearLabel ? `Upcoming open activities, ${schoolYearLabel} school year` : "Upcoming open activities"}
           </div>
         </div>
-        <a href="#" className="text-[11.5px] font-bold" style={{ color: "var(--accent)" }}>
-          Export
-        </a>
+        <Link href="/activity/list" className="text-[11.5px] font-bold" style={{ color: "var(--accent)" }}>
+          View all
+        </Link>
       </div>
 
-      <div className="flex items-stretch">
-        <div className="min-w-0 flex-1 px-2 pb-2">
-          <div
-            className="grid px-3.5 py-2 text-[10.5px] font-extrabold uppercase tracking-[0.05em]"
-            style={{ gridTemplateColumns: GRID_COLS, color: "var(--muted)" }}
-          >
-            <span>#</span>
-            <span>Date</span>
-            <span>Activity</span>
-            <span>School</span>
-            <span>Description</span>
-            <span className="text-right">Status</span>
-          </div>
-          {rows.map((row, i) => (
-            <div
-              key={i}
-              className="grid items-center border-t px-3.5 py-[11px] text-[12.5px]"
-              style={{ gridTemplateColumns: GRID_COLS, borderColor: "var(--border)" }}
-            >
-              <span className="font-bold" style={{ color: "var(--muted)" }}>
-                {i + 1}
-              </span>
-              <span style={{ color: "var(--muted)" }}>{row.date}</span>
-              <span className="truncate font-bold" style={{ color: "var(--text)" }}>
-                {row.activity}
-              </span>
-              <span className="truncate" style={{ color: "var(--text)" }}>
-                {row.school}
-              </span>
-              <span className="truncate" style={{ color: "var(--muted)" }}>
-                {row.description}
-              </span>
-              <span className="text-right">
-                <span
-                  className="rounded-full px-[9px] py-[3px] text-[10.5px] font-extrabold"
-                  style={{ color: STATUS_STYLE[row.status].color, background: STATUS_STYLE[row.status].bg }}
-                >
-                  {row.status}
-                </span>
-              </span>
-            </div>
-          ))}
+      <div className="px-2 pb-2">
+        <div
+          className="grid px-3.5 py-2 text-[10.5px] font-extrabold uppercase tracking-[0.05em]"
+          style={{ gridTemplateColumns: GRID_COLS, color: "var(--muted)" }}
+        >
+          <span>#</span>
+          <span>Date</span>
+          <span>Activity</span>
+          <span>School</span>
+          <span>Description</span>
+          <span className="text-right">Status</span>
         </div>
 
-        <div className="w-[288px] flex-none border-l px-5 pb-[18px] pt-4" style={{ borderColor: "var(--border)" }}>
-          <div className="text-[12.5px] font-bold" style={{ color: "var(--text)" }}>
-            Weekly activity
+        {activities.length === 0 && (
+          <div className="px-3.5 py-8 text-center text-[13px]" style={{ color: "var(--muted)" }}>
+            No open activities scheduled.
           </div>
-          <div className="text-[11px]" style={{ color: "var(--muted)" }}>
-            Participation events logged
-          </div>
-          <div className="mt-4 flex h-24 items-end gap-[3px]">
-            {bars.map((v, i) => (
-              <div
-                key={i}
-                className="flex-1 rounded-t-[3px]"
-                style={{ height: `${v}%`, background: "var(--accent)", opacity: 0.85 }}
-              />
-            ))}
-          </div>
-          <div className="mt-2 flex justify-between text-[10.5px]" style={{ color: "var(--muted)" }}>
-            <span>Mon</span>
-            <span>Wed</span>
-            <span>Fri</span>
-            <span>Sun</span>
-          </div>
-        </div>
+        )}
+
+        {activities.map((activity, i) => (
+          <Link
+            key={activity.id}
+            href={`/activity/${activity.id}`}
+            className="grid items-center border-t px-3.5 py-[11px] text-[12.5px] transition-colors hover:[background:var(--surface-2)]"
+            style={{ gridTemplateColumns: GRID_COLS, borderColor: "var(--border)" }}
+          >
+            <span className="font-bold" style={{ color: "var(--muted)" }}>
+              {i + 1}
+            </span>
+            <span style={{ color: "var(--muted)" }}>
+              {activity.activityDate?.toLocaleDateString(undefined, { month: "short", day: "2-digit" }) ?? "—"}
+            </span>
+            <span className="truncate font-bold" style={{ color: "var(--text)" }}>
+              {activity.name}
+            </span>
+            <span className="truncate" style={{ color: "var(--text)" }}>
+              {activity.school.name}
+            </span>
+            <span className="truncate" style={{ color: "var(--muted)" }}>
+              {activity.description}
+            </span>
+            <span className="text-right">
+              <span
+                className="rounded-full px-[9px] py-[3px] text-[10.5px] font-extrabold"
+                style={{ color: "var(--positive)", background: "var(--positive-soft)" }}
+              >
+                Open
+              </span>
+            </span>
+          </Link>
+        ))}
       </div>
     </div>
   );

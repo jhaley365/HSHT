@@ -1,16 +1,13 @@
-import { User, Activity as ActivityIcon, Building2, Network } from "lucide-react";
+import { Building2, Network } from "lucide-react";
 import type { Kpi } from "@/lib/dashboard-data";
 
 const ICONS = {
-  person: User,
-  pulse: ActivityIcon,
   building: Building2,
   "org-tree": Network,
 };
 
 export function KpiCard({ kpi }: { kpi: Kpi }) {
   const Icon = ICONS[kpi.icon];
-  const positive = kpi.trend.direction === "up";
 
   return (
     <div
@@ -38,22 +35,6 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
         >
           <Icon size={22} strokeWidth={1.9} />
         </div>
-      </div>
-
-      <div className="mt-3.5 flex items-center gap-1.5">
-        <span
-          className="rounded-full px-2 py-[3px] text-[11.5px] font-extrabold"
-          style={
-            positive
-              ? { color: "var(--positive)", background: "var(--positive-soft)" }
-              : { color: "var(--muted)", background: "var(--surface-2)" }
-          }
-        >
-          {positive ? "▲" : "—"} {kpi.trend.percent.toFixed(1)}%
-        </span>
-        <span className="text-[11.5px]" style={{ color: "var(--muted)" }}>
-          {kpi.trend.caption}
-        </span>
       </div>
     </div>
   );

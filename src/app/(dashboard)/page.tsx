@@ -3,30 +3,36 @@ import { EnrollmentChart } from "@/components/dashboard/EnrollmentChart";
 import { TopEnrollmentPanel } from "@/components/dashboard/TopEnrollmentPanel";
 import { ActivitySchedule } from "@/components/dashboard/ActivitySchedule";
 import { getKpis } from "@/lib/dashboard-data";
-import { getDashboardCounts, getTopEnrollmentSchools } from "@/lib/db-queries";
+import { getCoverageStats, getTopEnrollmentSchools, getEnrollmentTrend } from "@/lib/db-queries";
+import { getUpcomingOpenActivities } from "@/lib/activity-queries";
 
 // Queries the database, so this can't be statically generated at build time
 // (no DATABASE_URL / network access to Postgres during the Docker build).
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [counts, topSchools] = await Promise.all([getDashboardCounts(), getTopEnrollmentSchools()]);
-  const kpis = getKpis(counts);
+  const [coverage, topSchools, trend, upcomingActivities] = await Promise.all([
+    getCoverageStats(),
+    getTopEnrollmentSchools(),
+    getEnrollmentTrend(),
+    getUpcomingOpenActivities(),
+  ]);
+  const kpis = getKpis(coverage);
 
   return (
     <>
       <div className="grid grid-cols-4 gap-4">
-        {kpis.map((kpi) => (
-          <KpiCard key={kpi.label} kpi={kpi} />
+        {kpis.map((kpi, i) => (
+          <KpiCard key={i} kpi={kpi} />
         ))}
       </div>
 
       <div className="flex items-stretch gap-5">
-        <EnrollmentChart />
+        <EnrollmentChart trend={trend} />
         <TopEnrollmentPanel schools={topSchools} />
       </div>
 
-      <ActivitySchedule />
+      <ActivitySchedule activities={upcomingActivities} schoolYearLabel={trend.schoolYearLabel} />
     </>
   );
 }

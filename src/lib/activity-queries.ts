@@ -1,21 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
+import { getCurrentSchoolYear } from "@/lib/school-year";
 
 export type ActivityStatusFilter = "open" | "closed";
-
-// The legacy SchoolYear table is a fixed, non-overlapping July 1 - June 30
-// sequence (confirmed against real data). "Current" is whichever row's
-// range contains today; if today falls outside every synced range (e.g.
-// the sync is stale), fall back to the most recent one rather than
-// scoping to nothing.
-export async function getCurrentSchoolYear() {
-  const now = new Date();
-  const current = await prisma.schoolYear.findFirst({
-    where: { beginDate: { lte: now }, endDate: { gte: now } },
-  });
-  if (current) return current;
-  return prisma.schoolYear.findFirst({ orderBy: { beginDate: "desc" } });
-}
 
 export async function getActivityItemsGrouped() {
   const items = await prisma.activityItem.findMany({
@@ -52,6 +39,22 @@ export async function getVendorOptions() {
   return prisma.vendor.findMany({
     select: { legacyId: true, vendorCode: true, name: true },
     orderBy: { vendorCode: "asc" },
+  });
+}
+
+// For the Home dashboard's Activity Schedule widget — open activities in
+// the current school year, soonest first, capped to a handful.
+export async function getUpcomingOpenActivities(limit = 8) {
+  const schoolYear = await getCurrentSchoolYear();
+  const where: Prisma.ActivityWhereInput = { deleted: false, closed: false };
+  if (schoolYear) {
+    where.activityDate = { gte: schoolYear.beginDate ?? undefined, lte: schoolYear.endDate ?? undefined };
+  }
+  return prisma.activity.findMany({
+    where,
+    include: { school: true },
+    orderBy: { activityDate: "asc" },
+    take: limit,
   });
 }
 
