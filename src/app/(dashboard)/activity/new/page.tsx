@@ -121,8 +121,8 @@ export default async function NewActivityPage({
             </div>
             <div className="flex flex-col gap-3">
               {g.items.map((item) => (
-                <div key={item.activityItemId} className="grid grid-cols-[1fr_auto_auto_180px] items-center gap-4">
-                  <span className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>
+                <div key={item.activityItemId} className="flex flex-wrap items-center gap-4">
+                  <span className="w-[380px] flex-none text-[13px] font-semibold" style={{ color: "var(--text)" }}>
                     {item.description}
                   </span>
                   <label className="flex items-center gap-1.5 text-[12.5px]" style={{ color: "var(--text)" }}>
