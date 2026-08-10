@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
+import { recordAuditEvent } from "@/lib/audit";
 import type { UserRole } from "@/generated/prisma/client";
 
 const ROLES: UserRole[] = ["VIEWER", "STAFF", "ADMIN"];
@@ -13,20 +14,31 @@ function parseRole(value: FormDataEntryValue | null): UserRole {
 }
 
 export async function createUserAction(formData: FormData) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const name = String(formData.get("name") ?? "").trim() || null;
   const role = parseRole(formData.get("role"));
   if (!email) redirect("/users?error=Email is required");
 
+  let created;
   try {
-    await prisma.user.create({ data: { email, name, role } });
+    created = await prisma.user.create({ data: { email, name, role } });
   } catch (err) {
     if (typeof err === "object" && err !== null && "code" in err && err.code === "P2002") {
       redirect(`/users?error=${encodeURIComponent(`${email} already exists`)}`);
     }
     throw err;
   }
+
+  await recordAuditEvent({
+    actorId: session.user.id,
+    actorEmail: session.user.email,
+    actorName: session.user.name,
+    action: "CREATE",
+    entityType: "User",
+    entityId: created.id,
+    summary: `Created user ${email} (role ${role})`,
+  });
 
   revalidatePath("/users");
   redirect("/users");
@@ -41,11 +53,29 @@ export async function updateUserAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim() || null;
   const isSelf = id === session.user.id;
 
-  await prisma.user.update({
-    where: { id },
-    data: isSelf
-      ? { name }
-      : { name, role: parseRole(formData.get("role")), active: formData.get("active") === "on" },
+  const before = await prisma.user.findUnique({ where: { id } });
+  const data = isSelf
+    ? { name }
+    : { name, role: parseRole(formData.get("role")), active: formData.get("active") === "on" };
+
+  const updated = await prisma.user.update({ where: { id }, data });
+
+  const changes: string[] = [];
+  if (before && !isSelf) {
+    if (before.role !== updated.role) changes.push(`role ${before.role} → ${updated.role}`);
+    if (before.active !== updated.active) changes.push(updated.active ? "reactivated" : "deactivated");
+  }
+  if (before && before.name !== updated.name) changes.push("name changed");
+  await recordAuditEvent({
+    actorId: session.user.id,
+    actorEmail: session.user.email,
+    actorName: session.user.name,
+    action: "UPDATE",
+    entityType: "User",
+    entityId: id,
+    summary: changes.length
+      ? `Updated user ${updated.email} (${changes.join(", ")})`
+      : `Updated user ${updated.email}`,
   });
 
   revalidatePath("/users");
@@ -59,7 +89,19 @@ export async function deleteUserAction(formData: FormData) {
     redirect(`/users/${id}?error=${encodeURIComponent("You can't delete your own account")}`);
   }
 
+  const target = await prisma.user.findUnique({ where: { id } });
   await prisma.user.delete({ where: { id } });
+
+  await recordAuditEvent({
+    actorId: session.user.id,
+    actorEmail: session.user.email,
+    actorName: session.user.name,
+    action: "DELETE",
+    entityType: "User",
+    entityId: id,
+    summary: `Deleted user ${target?.email ?? id}`,
+  });
+
   revalidatePath("/users");
   redirect("/users");
 }

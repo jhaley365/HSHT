@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Email from "next-auth/providers/email";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
+import { recordAuditEvent } from "@/lib/audit";
 import type { UserRole } from "@/generated/prisma/client";
 
 declare module "next-auth" {
@@ -64,6 +65,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.id = appUser.id;
       session.user.role = appUser.role;
       return session;
+    },
+  },
+  events: {
+    // Side-effect only — doesn't affect the sign-in decision (that's
+    // callbacks.signIn above), so an audit-write failure here can never
+    // lock someone out.
+    async signIn({ user }) {
+      const appUser = user as unknown as { id: string; email?: string | null; name?: string | null };
+      await recordAuditEvent({
+        actorId: appUser.id,
+        actorEmail: appUser.email ?? null,
+        actorName: appUser.name ?? null,
+        action: "LOGIN",
+        entityType: "User",
+        entityId: appUser.id,
+        summary: `${appUser.name || appUser.email} logged in`,
+      });
+    },
+    async signOut(message) {
+      // Database-strategy sessions report `{ session }` (the deleted
+      // Session row, which only has userId) rather than `{ token }` — look
+      // the user up for a readable summary.
+      const userId = "session" in message ? message.session?.userId : undefined;
+      if (!userId) return;
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) return;
+      await recordAuditEvent({
+        actorId: user.id,
+        actorEmail: user.email,
+        actorName: user.name,
+        action: "LOGOUT",
+        entityType: "User",
+        entityId: user.id,
+        summary: `${user.name || user.email} logged out`,
+      });
     },
   },
 });

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireStaff } from "@/lib/authz";
 import { nextLegacyId } from "@/lib/next-legacy-id";
+import { recordAuditEvent } from "@/lib/audit";
 
 type ChecklistRow = { activityItemId: number; description: string; hsht: boolean; other: boolean; otherDetail: string | null };
 
@@ -36,7 +37,7 @@ async function coordinatorDisplayName(coordinatorId: number | null): Promise<str
 }
 
 export async function createActivityAction(formData: FormData) {
-  await requireStaff();
+  const session = await requireStaff();
 
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
@@ -84,6 +85,16 @@ export async function createActivityAction(formData: FormData) {
     return created;
   });
 
+  await recordAuditEvent({
+    actorId: session.user.id,
+    actorEmail: session.user.email,
+    actorName: session.user.name,
+    action: "CREATE",
+    entityType: "Activity",
+    entityId: activity.id,
+    summary: `Created activity "${activity.name}"`,
+  });
+
   revalidatePath("/activity/list");
   redirect(`/activity/${activity.id}`);
 }
@@ -92,15 +103,26 @@ export async function createActivityAction(formData: FormData) {
 // row. Matches the legacy schema's own intent (the column already existed
 // for this) and keeps activity/billing history intact.
 export async function deleteActivityAction(formData: FormData) {
-  await requireStaff();
+  const session = await requireStaff();
   const id = String(formData.get("id") ?? "");
-  await prisma.activity.update({ where: { id }, data: { deleted: true } });
+  const activity = await prisma.activity.update({ where: { id }, data: { deleted: true } });
+
+  await recordAuditEvent({
+    actorId: session.user.id,
+    actorEmail: session.user.email,
+    actorName: session.user.name,
+    action: "DELETE",
+    entityType: "Activity",
+    entityId: id,
+    summary: `Deleted activity "${activity.name}"`,
+  });
+
   revalidatePath("/activity/list");
   redirect("/activity/list");
 }
 
 export async function updateActivityAction(formData: FormData) {
-  await requireStaff();
+  const session = await requireStaff();
   const id = String(formData.get("id") ?? "");
   const activity = await prisma.activity.findUnique({ where: { id } });
   if (!activity) redirect("/activity/list");
@@ -164,18 +186,40 @@ export async function updateActivityAction(formData: FormData) {
     }
   });
 
+  await recordAuditEvent({
+    actorId: session.user.id,
+    actorEmail: session.user.email,
+    actorName: session.user.name,
+    action: "UPDATE",
+    entityType: "Activity",
+    entityId: id,
+    summary: `Updated activity "${name}"`,
+  });
+
   revalidatePath(`/activity/${id}`);
   revalidatePath("/activity/list");
   redirect(`/activity/${id}`);
 }
 
 export async function toggleActivityClosedAction(formData: FormData) {
-  await requireStaff();
+  const session = await requireStaff();
   const id = String(formData.get("id") ?? "");
-  const activity = await prisma.activity.findUnique({ where: { id }, select: { closed: true } });
+  const activity = await prisma.activity.findUnique({ where: { id }, select: { closed: true, name: true } });
   if (!activity) redirect("/activity/list");
 
-  await prisma.activity.update({ where: { id }, data: { closed: !activity.closed } });
+  const closed = !activity.closed;
+  await prisma.activity.update({ where: { id }, data: { closed } });
+
+  await recordAuditEvent({
+    actorId: session.user.id,
+    actorEmail: session.user.email,
+    actorName: session.user.name,
+    action: "UPDATE",
+    entityType: "Activity",
+    entityId: id,
+    summary: `${closed ? "Closed" : "Reopened"} activity "${activity.name}"`,
+  });
+
   revalidatePath(`/activity/${id}`);
   redirect(`/activity/${id}`);
 }
@@ -185,7 +229,7 @@ export async function toggleActivityClosedAction(formData: FormData) {
 // new one, so repeatedly checking/unchecking the same student doesn't pile
 // up duplicate history rows.
 export async function saveAssignedStudentsAction(formData: FormData) {
-  await requireStaff();
+  const session = await requireStaff();
   const activityDbId = String(formData.get("activityDbId") ?? "");
   const activity = await prisma.activity.findUnique({ where: { id: activityDbId } });
   if (!activity) redirect("/activity/list");
@@ -194,12 +238,15 @@ export async function saveAssignedStudentsAction(formData: FormData) {
   const existingAll = await prisma.studentActivity.findMany({ where: { activityId: activity.legacyId } });
   const existingByStudent = new Map(existingAll.map((e) => [e.studentId, e]));
 
+  let added = 0;
+  let removed = 0;
   await prisma.$transaction(async (tx) => {
     for (const studentId of checkedStudentIds) {
       const existing = existingByStudent.get(studentId);
       if (existing?.deleted === false) continue;
       if (existing) {
         await tx.studentActivity.update({ where: { id: existing.id }, data: { deleted: false } });
+        added++;
         continue;
       }
       await tx.studentActivity.create({
@@ -211,21 +258,35 @@ export async function saveAssignedStudentsAction(formData: FormData) {
           status: 1,
         },
       });
+      added++;
     }
 
     for (const existing of existingAll) {
       if (!existing.deleted && !checkedStudentIds.has(existing.studentId)) {
         await tx.studentActivity.update({ where: { id: existing.id }, data: { deleted: true } });
+        removed++;
       }
     }
   });
+
+  if (added > 0 || removed > 0) {
+    await recordAuditEvent({
+      actorId: session.user.id,
+      actorEmail: session.user.email,
+      actorName: session.user.name,
+      action: "UPDATE",
+      entityType: "Activity",
+      entityId: activityDbId,
+      summary: `Updated assigned students for "${activity.name}" (${added} added, ${removed} removed)`,
+    });
+  }
 
   revalidatePath(`/activity/${activityDbId}`);
   redirect(`/activity/${activityDbId}`);
 }
 
 export async function createFundingSourceAction(formData: FormData) {
-  await requireStaff();
+  const session = await requireStaff();
 
   const name = String(formData.get("name") ?? "").trim();
   const vendorCode = String(formData.get("vendorCode") ?? "").trim().toUpperCase() || null;
@@ -239,10 +300,20 @@ export async function createFundingSourceAction(formData: FormData) {
 
   if (!name) redirect("/activity/funding-source?error=Name is required");
 
-  await prisma.$transaction(async (tx) => {
-    await tx.vendor.create({
+  const vendor = await prisma.$transaction(async (tx) => {
+    return tx.vendor.create({
       data: { legacyId: await nextLegacyId(tx, "vendor"), name, vendorCode, address, city, state, zip, phone, email, contact },
     });
+  });
+
+  await recordAuditEvent({
+    actorId: session.user.id,
+    actorEmail: session.user.email,
+    actorName: session.user.name,
+    action: "CREATE",
+    entityType: "Vendor",
+    entityId: vendor.id,
+    summary: `Created funding source "${name}"`,
   });
 
   revalidatePath("/activity/funding-source");

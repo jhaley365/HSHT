@@ -606,3 +606,33 @@ model AuditLog {
 
   @@map("audit_log")
 }
+
+// New app audit trail — distinct from the legacy AuditLog above, which is
+// frozen, read-only data from the old system's one-time import. This one is
+// actively written to by the app itself (see src/lib/audit.ts): logins/
+// logouts (src/auth.ts events) and key writes (Server Actions for Users,
+// Activities, Vendors). No FK to User — actorId is a denormalized snapshot
+// so a deleted user's history survives the delete.
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+}
+
+model AuditEvent {
+  id         String      @id @default(cuid())
+  createdAt  DateTime    @default(now())
+  actorId    String?
+  actorEmail String?
+  actorName  String?
+  action     AuditAction
+  entityType String?
+  entityId   String?
+  summary    String
+
+  @@index([createdAt])
+  @@index([actorId])
+  @@map("audit_events")
+}

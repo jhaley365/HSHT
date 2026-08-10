@@ -9,6 +9,7 @@ import {
   Upload,
   Settings,
   UserCog,
+  History,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,4 +56,5 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Exports", href: "/exports", icon: Upload, expandable: true },
   { label: "Utility", href: "/utility", icon: Settings, expandable: true },
   { label: "Users", href: "/users", icon: UserCog, adminOnly: true },
+  { label: "Audit", href: "/audit", icon: History, adminOnly: true },
 ];
