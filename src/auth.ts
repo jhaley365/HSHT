@@ -44,6 +44,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         host: process.env.EMAIL_SERVER_HOST,
         port: Number(process.env.EMAIL_SERVER_PORT || 25),
         secure: false,
+        // Auth.js's Nodemailer provider deep-merges this over a default
+        // that includes `auth: { user: "", pass: "" }` — that object is
+        // still truthy, so without this override nodemailer tries to
+        // authenticate with blank credentials and fails with "Missing
+        // credentials for PLAIN". `auth: false` is what actually disables
+        // it (confirmed against the SMTP2GO no-auth relay in production).
+        auth: false,
       },
       from: process.env.EMAIL_FROM,
     }),
