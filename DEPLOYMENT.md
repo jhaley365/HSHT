@@ -19,6 +19,7 @@
    - `POSTGRES_PASSWORD` — strong password for the database.
    - `AUTH_SECRET` — generate with `openssl rand -base64 32`.
    - `NEXT_PUBLIC_APP_URL` — e.g. `https://hsht.haley365.com`.
+   - `AUTH_URL` — same value as `NEXT_PUBLIC_APP_URL`. Auth.js uses this (not `NEXT_PUBLIC_APP_URL`) to build magic-link URLs; without it self-hosted-behind-a-proxy setups can end up with links pointing at the container's internal address instead of the real domain (bit us once — see MIGRATION.md "Auth" for the fix).
    - `HSHT_DOMAIN` — the domain Caddy should request a cert for, e.g. `hsht.haley365.com`.
    - `EMAIL_SERVER_HOST` / `EMAIL_SERVER_PORT` / `EMAIL_FROM` — magic-link sign-in email, sent via SMTP2GO. Requires the VPS's public IP to be whitelisted in the SMTP2GO account first (no username/password needed once it is) — see MIGRATION.md "Auth".
    - `LEGACY_MSSQL_*` — only needed when running `npm run sync:legacy` (see below); also requires this VPS's IP whitelisted on the legacy SQL Server.

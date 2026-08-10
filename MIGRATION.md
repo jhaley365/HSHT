@@ -283,10 +283,27 @@ to hash, reset, or leak.
   for any `User` with `active = false`, so deactivating someone blocks a
   still-valid magic link, not just future ones.
 
-**Still needs verification**: this was built and tested against a local
-Postgres with fake `Coordinator`/`StaffUser` rows (dedup, idempotent
-re-run, and the `active`-gate all confirmed working). It has **not** been
-exercised against the real SMTP2GO relay — same limitation as the legacy
-SQL Server sync, no network path to either from where this was built. The
-first real send should be tried right after the VPS's IP is confirmed
-whitelisted.
+**Verified against production (2026-08-10)**, after two real bugs only a
+live run could surface (no network path to SMTP2GO from where this was
+built, so these couldn't be caught before deploying):
+
+- **Auth.js's Nodemailer provider deep-merges your `server` config over its
+  own default, which sets `auth: { user: "", pass: "" }`.** That object is
+  still truthy even with blank strings, so nodemailer tried to authenticate
+  against SMTP2GO's no-auth relay and failed with `Missing credentials for
+  "PLAIN"`. Fix: explicitly pass `auth: false` in the `server` config — only
+  an explicit falsy value survives the merge as an override; omitting the
+  key just inherits the truthy default.
+- **The magic-link URL embedded in the email pointed at the container's
+  internal bind address (`0.0.0.0:3000`) instead of the real domain.**
+  Self-hosted behind a reverse proxy (Caddy, not Vercel), Auth.js's
+  `signIn()` server action builds its callback URL from `AUTH_URL`/
+  `NEXTAUTH_URL` if set, otherwise from request headers — and something in
+  that header-detection path resolved to the container's own address rather
+  than `app.gacomm-enroll.org`. Fix: set `AUTH_URL` explicitly (same value
+  as `NEXT_PUBLIC_APP_URL`) so Auth.js never falls back to header
+  detection at all. See `DEPLOYMENT.md`.
+
+SMTP2GO delivery itself is confirmed working end-to-end (the email
+arrived); the `AUTH_URL` fix for the link itself still needs to be
+deployed and re-tested.
