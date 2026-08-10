@@ -64,30 +64,53 @@ export function Sidebar({ collapsed, user }: { collapsed: boolean; user: Current
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[13.5px] transition-colors ${
-                collapsed ? "justify-center" : ""
-              }`}
-              style={{
-                fontWeight: active ? 700 : 600,
-                color: active ? "var(--sidebar-active-text)" : "var(--sidebar-text)",
-                background: active ? "var(--sidebar-active-bg)" : "transparent",
-              }}
-              onMouseEnter={(e) => {
-                if (!active) e.currentTarget.style.background = "var(--sidebar-hover)";
-              }}
-              onMouseLeave={(e) => {
-                if (!active) e.currentTarget.style.background = "transparent";
-              }}
-            >
-              <Icon size={18} strokeWidth={1.9} className="flex-none" />
-              {!collapsed && <span className="truncate">{item.label}</span>}
-              {!collapsed && item.expandable && (
-                <ChevronDown size={14} className="ml-auto flex-none" style={{ color: "var(--sidebar-muted)" }} />
+            <div key={item.href}>
+              <Link
+                href={item.href}
+                className={`flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[13.5px] transition-colors ${
+                  collapsed ? "justify-center" : ""
+                }`}
+                style={{
+                  fontWeight: active ? 700 : 600,
+                  color: active ? "var(--sidebar-active-text)" : "var(--sidebar-text)",
+                  background: active ? "var(--sidebar-active-bg)" : "transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) e.currentTarget.style.background = "var(--sidebar-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <Icon size={18} strokeWidth={1.9} className="flex-none" />
+                {!collapsed && <span className="truncate">{item.label}</span>}
+                {!collapsed && item.expandable && (
+                  <ChevronDown size={14} className="ml-auto flex-none" style={{ color: "var(--sidebar-muted)" }} />
+                )}
+              </Link>
+
+              {!collapsed && active && item.children && (
+                <div className="mb-1 ml-[29px] mt-1 flex flex-col gap-[2px] border-l pl-3" style={{ borderColor: "var(--sidebar-border)" }}>
+                  {item.children.map((child) => {
+                    const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        className="truncate rounded-[8px] px-2.5 py-[7px] text-[12.5px] transition-colors"
+                        style={{
+                          fontWeight: childActive ? 700 : 500,
+                          color: childActive ? "var(--sidebar-active-text)" : "var(--sidebar-muted)",
+                          background: childActive ? "var(--sidebar-active-bg)" : "transparent",
+                        }}
+                      >
+                        {child.label}
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
-            </Link>
+            </div>
           );
         })}
       </nav>

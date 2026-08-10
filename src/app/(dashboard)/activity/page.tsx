@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/dashboard/ComingSoon";
+import { redirect } from "next/navigation";
 
 export default function ActivityPage() {
-  return <ComingSoon title="Activity" />;
+  redirect("/activity/list");
 }

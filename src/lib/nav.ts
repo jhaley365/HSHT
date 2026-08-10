@@ -18,11 +18,23 @@ export type NavItem = {
   icon: LucideIcon;
   expandable?: boolean;
   adminOnly?: boolean;
+  children?: { label: string; href: string }[];
 };
 
 export const NAV_ITEMS: NavItem[] = [
   { label: "Home", href: "/", icon: Home },
-  { label: "Activity", href: "/activity", icon: Activity, expandable: true },
+  {
+    label: "Activity",
+    href: "/activity",
+    icon: Activity,
+    expandable: true,
+    children: [
+      { label: "New", href: "/activity/new" },
+      { label: "List", href: "/activity/list" },
+      { label: "Items", href: "/activity/items" },
+      { label: "Funding Source", href: "/activity/funding-source" },
+    ],
+  },
   { label: "Students", href: "/students", icon: Users },
   { label: "Schools", href: "/schools", icon: Building2 },
   { label: "School Districts", href: "/districts", icon: Network },
