@@ -32,20 +32,34 @@ export default async function ActivityListPage({
         <div className="text-[12.5px]" style={{ color: "var(--muted)" }}>
           {status === "open" && schoolYear && `Showing the ${schoolYear.label} school year`}
         </div>
-        <form className="flex items-center gap-2" action="/activity/list" method="get">
-          <label className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }}>
+        <div className="flex items-center gap-2">
+          <span className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }}>
             Status:
-          </label>
-          <select
-            name="status"
-            defaultValue={status}
-            className="h-[34px] rounded-[9px] border px-3 text-[13px] outline-none"
-            style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
+          </span>
+          <div
+            className="flex items-center gap-1 rounded-[9px] border p-1"
+            style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
           >
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
-          </select>
-        </form>
+            {(["open", "closed"] as const).map((option) => {
+              const active = status === option;
+              return (
+                <Link
+                  key={option}
+                  href={buildActivityListHref({ status: option, page: 1 })}
+                  className="rounded-[7px] px-[11px] py-[5px] text-[12.5px] capitalize"
+                  style={{
+                    fontWeight: active ? 700 : 600,
+                    background: active ? "var(--surface)" : "transparent",
+                    color: active ? "var(--text)" : "var(--muted)",
+                    boxShadow: active ? "0 1px 3px rgba(0,0,0,.16)" : "none",
+                  }}
+                >
+                  {option}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-[14px] border" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
