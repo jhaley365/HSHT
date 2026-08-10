@@ -29,9 +29,15 @@ services:
   # — not started by `up` (the `app` image is a minimal standalone build with
   # no scripts/ dir or dev deps like tsx; this one builds from the `builder`
   # stage instead, same as `migrate`).
+  #
+  # profiles: ["tools"] means `docker compose up --build` never rebuilds this
+  # one — always pass --build explicitly on `run`, or you'll silently reuse
+  # a stale image from a previous deploy (worked for us once: sync:legacy
+  # kept running fine on a weeks-old image since that script hadn't
+  # changed, but seed:users didn't exist yet in that image at all).
   # Run with:
-  #   docker compose run --rm sync npm run sync:legacy -- --dry-run
-  #   docker compose run --rm sync npm run seed:users -- --dry-run
+  #   docker compose run --rm --build sync npm run sync:legacy -- --dry-run
+  #   docker compose run --rm --build sync npm run seed:users -- --dry-run
   sync:
     build:
       context: .

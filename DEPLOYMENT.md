@@ -90,9 +90,18 @@ Auth is wired up (Auth.js Email provider via SMTP2GO — see MIGRATION.md
 first deploy, after the legacy data sync:
 
 ```bash
-docker compose run --rm sync npm run sync:legacy   # refresh Coordinator/StaffUser staging tables
-docker compose run --rm sync npm run seed:users    # consolidate them into User (VIEWER by default)
+docker compose run --rm --build sync npm run sync:legacy   # refresh Coordinator/StaffUser staging tables
+docker compose run --rm --build sync npm run seed:users    # consolidate them into User (VIEWER by default)
 ```
+
+Always pass `--build` when invoking `sync` — it's a profile-scoped tool
+service (`profiles: ["tools"]`), so a plain `docker compose up -d --build`
+never rebuilds it. Without `--build` here, `docker compose run --rm sync`
+silently reuses whatever `sync` image was last built, even if it's weeks
+stale relative to the code you just pulled (this bit us: `sync:legacy`
+kept working because that script hadn't changed, but a brand-new script
+like `seed:users` doesn't exist in a stale image at all — "Missing
+script" is the symptom).
 
 Then promote specific people to `STAFF`/`ADMIN` directly in the database
 (e.g. `docker compose exec db psql -U hsht -d hsht -c "UPDATE users SET role='ADMIN' WHERE email='...';"`)
