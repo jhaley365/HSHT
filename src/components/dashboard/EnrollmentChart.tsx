@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { EnrollmentTrend } from "@/lib/db-queries";
 import { BarSparkline } from "@/components/dashboard/Sparkline";
 
@@ -11,6 +14,10 @@ const MAX_X_LABELS = 7;
 // viewBox below reserves just for them — kept independent of CHART_LEFT so
 // wider numbers (1,000s) never clip against the viewBox edge.
 const Y_LABEL_X = 4;
+const VIEWBOX_LEFT = -40;
+const VIEWBOX_RIGHT = 920;
+const TOOLTIP_WIDTH = 128;
+const TOOLTIP_HEIGHT = 42;
 
 function niceMax(value: number): number {
   if (value <= 0) return 10;
@@ -19,6 +26,8 @@ function niceMax(value: number): number {
 }
 
 export function EnrollmentChart({ trend }: { trend: EnrollmentTrend }) {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
   const counts = trend.cumulativeCounts;
   const n = counts.length;
   const yMax = niceMax(Math.max(...counts, 1));
@@ -40,6 +49,15 @@ export function EnrollmentChart({ trend }: { trend: EnrollmentTrend }) {
 
   const maxWeeklyNew = Math.max(...trend.weeklyNewCounts, 1);
   const sparklineValues = trend.weeklyNewCounts.map((v) => Math.round((v / maxWeeklyNew) * 100));
+
+  const hovered = hoverIndex !== null ? points[hoverIndex] : null;
+  // Flip the tooltip below the point when there isn't room above it, and
+  // clamp its x so it never spills past the viewBox's left/right edges.
+  const tooltipAbove = hovered ? hovered.y - TOOLTIP_HEIGHT - 14 >= CHART_TOP - 20 : true;
+  const tooltipX = hovered
+    ? Math.min(Math.max(hovered.x - TOOLTIP_WIDTH / 2, VIEWBOX_LEFT + 4), VIEWBOX_RIGHT - TOOLTIP_WIDTH - 4)
+    : 0;
+  const tooltipY = hovered ? (tooltipAbove ? hovered.y - TOOLTIP_HEIGHT - 14 : hovered.y + 14) : 0;
 
   return (
     <div
@@ -70,7 +88,7 @@ export function EnrollmentChart({ trend }: { trend: EnrollmentTrend }) {
         </div>
       ) : (
         <>
-          <svg viewBox="-40 0 960 240" className="mt-2 w-full">
+          <svg viewBox={`${VIEWBOX_LEFT} 0 ${VIEWBOX_RIGHT - VIEWBOX_LEFT} 240`} className="mt-2 w-full">
             {gridLines.map((y, i) => (
               <line key={y} x1={CHART_LEFT} x2={CHART_RIGHT} y1={y} y2={y} stroke="var(--grid)" strokeWidth={i === gridLines.length - 1 ? 1.5 : 1} />
             ))}
@@ -81,9 +99,46 @@ export function EnrollmentChart({ trend }: { trend: EnrollmentTrend }) {
             ))}
             <path d={areaPath} fill="var(--accent)" fillOpacity={0.13} />
             <path d={linePath} fill="none" stroke="var(--accent)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+
+            {hovered && (
+              <line x1={hovered.x} x2={hovered.x} y1={CHART_TOP} y2={CHART_BOTTOM} stroke="var(--accent)" strokeWidth={1} strokeDasharray="3 3" opacity={0.4} />
+            )}
+
             {points.map((p, i) => (
-              <circle key={i} cx={p.x} cy={p.y} r={3.6} fill="var(--surface)" stroke="var(--accent)" strokeWidth={2} />
+              <g key={i}>
+                <circle cx={p.x} cy={p.y} r={hoverIndex === i ? 5 : 3.6} fill="var(--surface)" stroke="var(--accent)" strokeWidth={2} />
+                {/* Larger invisible hit-target so hovering near a point (not just exactly on the 3.6px dot) still triggers the tooltip. */}
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={12}
+                  fill="transparent"
+                  onMouseEnter={() => setHoverIndex(i)}
+                  onMouseLeave={() => setHoverIndex(null)}
+                  style={{ cursor: "pointer" }}
+                />
+              </g>
             ))}
+
+            {hovered && (
+              <g style={{ pointerEvents: "none" }}>
+                <rect
+                  x={tooltipX}
+                  y={tooltipY}
+                  width={TOOLTIP_WIDTH}
+                  height={TOOLTIP_HEIGHT}
+                  rx={8}
+                  fill="var(--heading)"
+                  opacity={0.95}
+                />
+                <text x={tooltipX + 10} y={tooltipY + 17} fontSize={11} fontWeight={700} fill="var(--surface)">
+                  Week of {trend.weekLabels[hoverIndex!]}
+                </text>
+                <text x={tooltipX + 10} y={tooltipY + 32} fontSize={11} fill="var(--surface)">
+                  {counts[hoverIndex!].toLocaleString()} students enrolled
+                </text>
+              </g>
+            )}
           </svg>
           <div className="flex justify-between pl-[30px] text-[11px]" style={{ color: "var(--muted)" }}>
             {xLabels.map((label, i) => (
