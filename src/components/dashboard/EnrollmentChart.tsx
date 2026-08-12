@@ -7,6 +7,10 @@ const CHART_TOP = 30;
 const CHART_BOTTOM = 210;
 const GRID_STEPS = 4;
 const MAX_X_LABELS = 7;
+// The y-axis labels render to the left of x=0, in the negative strip the
+// viewBox below reserves just for them — kept independent of CHART_LEFT so
+// wider numbers (1,000s) never clip against the viewBox edge.
+const Y_LABEL_X = 4;
 
 function niceMax(value: number): number {
   if (value <= 0) return 10;
@@ -66,13 +70,13 @@ export function EnrollmentChart({ trend }: { trend: EnrollmentTrend }) {
         </div>
       ) : (
         <>
-          <svg viewBox="0 0 920 240" className="mt-2 w-full">
+          <svg viewBox="-40 0 960 240" className="mt-2 w-full">
             {gridLines.map((y, i) => (
               <line key={y} x1={CHART_LEFT} x2={CHART_RIGHT} y1={y} y2={y} stroke="var(--grid)" strokeWidth={i === gridLines.length - 1 ? 1.5 : 1} />
             ))}
             {yLabels.map((label, i) => (
-              <text key={i} x={CHART_LEFT - 10} y={gridLines[i] + 4} textAnchor="end" fontSize={11} fill="var(--muted)">
-                {label}
+              <text key={i} x={Y_LABEL_X} y={gridLines[i] + 4} textAnchor="end" fontSize={11} fill="var(--muted)">
+                {label.toLocaleString()}
               </text>
             ))}
             <path d={areaPath} fill="var(--accent)" fillOpacity={0.13} />
