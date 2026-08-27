@@ -1,75 +1,70 @@
-import Link from "next/link";
 import { requireUser } from "@/lib/authz";
-import { getStudentsReport } from "@/lib/reports-queries";
-import { QUARTERS, QUARTER_LABELS, isQuarter, type Quarter } from "@/lib/reports/quarters";
-import { formatGrade, formatGender } from "@/lib/legacy-codes";
+import { getStudentsReport, getDistrictOptions } from "@/lib/reports-queries";
+import { getSchoolOptions } from "@/lib/activity-queries";
+import { isQuarter, type Quarter } from "@/lib/reports/quarters";
+import { formatGrade, formatGender, GRADE_LABELS, GENDER_LABELS } from "@/lib/legacy-codes";
 import { ReportToolbar } from "@/components/reports/ReportToolbar";
+import { StudentsFilterBar } from "@/components/reports/StudentsFilterBar";
 
 export const dynamic = "force-dynamic";
 
 const GRID_COLS = "50px 90px 1.3fr 1.3fr 1.3fr 130px 90px 110px";
 
-function buildHref(quarter?: Quarter) {
-  return quarter ? `/reports/students?quarter=${quarter}` : "/reports/students";
+const GRADE_OPTIONS = Object.entries(GRADE_LABELS) as [string, string][];
+const GENDER_OPTIONS = Object.entries(GENDER_LABELS) as [string, string][];
+
+type Filters = { quarter?: Quarter; schoolId?: number; districtId?: number; grade?: string; gender?: string };
+
+function parseFilters(params: { quarter?: string; schoolId?: string; districtId?: string; grade?: string; gender?: string }): Filters {
+  return {
+    quarter: isQuarter(params.quarter) ? params.quarter : undefined,
+    schoolId: params.schoolId ? Number(params.schoolId) : undefined,
+    districtId: params.districtId ? Number(params.districtId) : undefined,
+    grade: params.grade || undefined,
+    gender: params.gender || undefined,
+  };
 }
 
-export default async function StudentsReportPage({ searchParams }: { searchParams: Promise<{ quarter?: string }> }) {
+function xlsxHref(filters: Filters) {
+  const sp = new URLSearchParams();
+  if (filters.quarter) sp.set("quarter", filters.quarter);
+  if (filters.schoolId) sp.set("schoolId", String(filters.schoolId));
+  if (filters.districtId) sp.set("districtId", String(filters.districtId));
+  if (filters.grade) sp.set("grade", filters.grade);
+  if (filters.gender) sp.set("gender", filters.gender);
+  const qs = sp.toString();
+  return qs ? `/reports/students/export?${qs}` : "/reports/students/export";
+}
+
+export default async function StudentsReportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ quarter?: string; schoolId?: string; districtId?: string; grade?: string; gender?: string }>;
+}) {
   await requireUser();
   const params = await searchParams;
-  const quarter = isQuarter(params.quarter) ? params.quarter : undefined;
-  const { students, schoolYear } = await getStudentsReport(quarter);
+  const filters = parseFilters(params);
+
+  const [{ students, schoolYear }, schools, districts] = await Promise.all([
+    getStudentsReport(filters),
+    getSchoolOptions(),
+    getDistrictOptions(),
+  ]);
 
   return (
     <div className="flex flex-1 flex-col gap-5">
-      <ReportToolbar title="Students Report" xlsxHref={`/reports/students/export${quarter ? `?quarter=${quarter}` : ""}`} />
+      <ReportToolbar title="Students Report" xlsxHref={xlsxHref(filters)} />
 
-      <div className="print:hidden flex items-center justify-between">
+      <div className="print:hidden flex flex-col gap-3">
         <div className="text-[12.5px]" style={{ color: "var(--muted)" }}>
           {schoolYear ? `Showing the ${schoolYear.label} school year` : "No current school year on file"}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }}>
-            Quarter:
-          </span>
-          <div className="flex items-center gap-1 rounded-[9px] border p-1" style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
-            <Link
-              href={buildHref()}
-              className="rounded-[7px] px-[11px] py-[5px] text-[12.5px]"
-              style={{
-                fontWeight: !quarter ? 700 : 600,
-                background: !quarter ? "var(--surface)" : "transparent",
-                color: !quarter ? "var(--text)" : "var(--muted)",
-                boxShadow: !quarter ? "0 1px 3px rgba(0,0,0,.16)" : "none",
-              }}
-            >
-              All
-            </Link>
-            {QUARTERS.map((q) => {
-              const active = quarter === q;
-              return (
-                <Link
-                  key={q}
-                  href={buildHref(q)}
-                  className="rounded-[7px] px-[11px] py-[5px] text-[12.5px]"
-                  title={QUARTER_LABELS[q]}
-                  style={{
-                    fontWeight: active ? 700 : 600,
-                    background: active ? "var(--surface)" : "transparent",
-                    color: active ? "var(--text)" : "var(--muted)",
-                    boxShadow: active ? "0 1px 3px rgba(0,0,0,.16)" : "none",
-                  }}
-                >
-                  {q}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+        <StudentsFilterBar schools={schools} districts={districts} gradeOptions={GRADE_OPTIONS} genderOptions={GENDER_OPTIONS} />
       </div>
 
       <div className="print:block hidden text-[13px] font-bold">
         Students Report — {schoolYear?.label ?? ""}
-        {quarter ? ` — ${QUARTER_LABELS[quarter]}` : ""}
+        {filters.quarter ? ` — ${filters.quarter}` : ""}
       </div>
 
       <div className="overflow-hidden rounded-[14px] border print:border-0 print:rounded-none" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>

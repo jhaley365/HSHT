@@ -3,7 +3,7 @@
 // Grade and Race are stored padded (legacy nchar columns), so trim before
 // looking up.
 
-const GENDER_LABELS: Record<string, string> = {
+export const GENDER_LABELS: Record<string, string> = {
   "1": "Male",
   "0": "Female",
 };
@@ -40,7 +40,7 @@ export function formatRace(race: string | null, raceOther: string | null): strin
   return RACE_LABELS[code] ?? code;
 }
 
-const GRADE_LABELS: Record<string, string> = {
+export const GRADE_LABELS: Record<string, string> = {
   "1": "8th Grade",
   "2": "9th Grade (Freshman)",
   "3": "10th Grade (Sophomore)",

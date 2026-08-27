@@ -10,8 +10,15 @@ export async function GET(request: Request) {
   await requireUser();
   const { searchParams } = new URL(request.url);
   const quarterParam = searchParams.get("quarter");
-  const quarter = isQuarter(quarterParam) ? quarterParam : undefined;
-  const { students } = await getStudentsReport(quarter);
+  const schoolIdParam = searchParams.get("schoolId");
+  const districtIdParam = searchParams.get("districtId");
+  const { students } = await getStudentsReport({
+    quarter: isQuarter(quarterParam) ? quarterParam : undefined,
+    schoolId: schoolIdParam ? Number(schoolIdParam) : undefined,
+    districtId: districtIdParam ? Number(districtIdParam) : undefined,
+    grade: searchParams.get("grade") || undefined,
+    gender: searchParams.get("gender") || undefined,
+  });
 
   const buffer = await buildWorkbookBuffer(
     "Students",

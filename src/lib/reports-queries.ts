@@ -3,8 +3,17 @@
 // db-queries.ts#getCoverageStats) so the report's row/group count always
 // matches the number the user clicked through from.
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { getCurrentSchoolYear } from "@/lib/school-year";
 import { getQuarterRange, type Quarter } from "@/lib/reports/quarters";
+
+export type StudentsReportFilters = {
+  quarter?: Quarter;
+  schoolId?: number;
+  districtId?: number;
+  grade?: string;
+  gender?: string;
+};
 
 async function currentSchoolYearDateFilter() {
   const schoolYear = await getCurrentSchoolYear();
@@ -14,21 +23,41 @@ async function currentSchoolYearDateFilter() {
 
 // Report 1: Students enrolled in the current school year, matching the
 // Students KPI. `quarter` further narrows enrollDate to one of the four
-// quarters of that school year (Q1=Jul-Sep ... Q4=Apr-Jun).
-export async function getStudentsReport(quarter?: Quarter) {
+// quarters of that school year (Q1=Jul-Sep ... Q4=Apr-Jun). School/
+// district/grade/gender narrow the roster further via the filter bar.
+export async function getStudentsReport(filters: StudentsReportFilters = {}) {
   const { schoolYear, dateFilter } = await currentSchoolYearDateFilter();
   let enrollDate = dateFilter;
-  if (quarter && schoolYear) {
-    const range = getQuarterRange(schoolYear, quarter);
+  if (filters.quarter && schoolYear) {
+    const range = getQuarterRange(schoolYear, filters.quarter);
     enrollDate = { gte: range.start, lte: range.end };
   }
 
+  const where: Prisma.StudentWhereInput = { active: true, enrollDate };
+  if (filters.schoolId) where.schoolId = filters.schoolId;
+  if (filters.districtId) where.school = { districtId: filters.districtId };
+  // Grade/gender are legacy nchar columns and may carry trailing padding
+  // (see legacy-codes.ts) — startsWith tolerates that without needing a
+  // raw-SQL trim, and is unambiguous since every code is a single digit.
+  if (filters.grade) where.grade = { startsWith: filters.grade };
+  if (filters.gender) where.gender = { startsWith: filters.gender };
+
   const students = await prisma.student.findMany({
-    where: { active: true, enrollDate },
+    where,
     include: { school: { include: { district: true } } },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
   return { students, schoolYear };
+}
+
+// Filter-bar options for the Students report — every active district, used
+// alongside getSchoolOptions() (activity-queries.ts) for the School filter.
+export async function getDistrictOptions() {
+  return prisma.district.findMany({
+    where: { active: true },
+    select: { legacyId: true, name: true },
+    orderBy: { name: "asc" },
+  });
 }
 
 // Report 2: Districts with enrolled students -> Schools -> Students,

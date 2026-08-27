@@ -22,7 +22,7 @@ export async function getActivityItemsGrouped() {
 export async function getSchoolOptions() {
   return prisma.school.findMany({
     where: { active: true },
-    select: { legacyId: true, name: true, schoolCode: true, district: { select: { code: true } } },
+    select: { legacyId: true, name: true, schoolCode: true, districtId: true, district: { select: { code: true } } },
     orderBy: { name: "asc" },
   });
 }
