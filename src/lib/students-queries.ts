@@ -24,6 +24,10 @@ function buildOrderBy(sort: StudentSortKey, dir: SortDir): Prisma.StudentOrderBy
 export async function getStudentsList({
   q,
   status,
+  districtId,
+  schoolId,
+  grade,
+  gender,
   sort,
   dir,
   page,
@@ -31,6 +35,10 @@ export async function getStudentsList({
 }: {
   q: string;
   status: StudentStatusFilter;
+  districtId?: number;
+  schoolId?: number;
+  grade?: string;
+  gender?: string;
   sort: StudentSortKey;
   dir: SortDir;
   page: number;
@@ -46,6 +54,13 @@ export async function getStudentsList({
       { school: { name: { contains: q, mode: "insensitive" } } },
     ];
   }
+  if (schoolId) where.schoolId = schoolId;
+  if (districtId) where.school = { districtId };
+  // Grade/gender are legacy nchar columns and may carry trailing padding
+  // (see legacy-codes.ts) — startsWith tolerates that without a raw-SQL
+  // trim, and is unambiguous since every code is a single digit.
+  if (grade) where.grade = { startsWith: grade };
+  if (gender) where.gender = { startsWith: gender };
 
   const [students, total] = await Promise.all([
     prisma.student.findMany({

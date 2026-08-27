@@ -5,14 +5,27 @@ import {
   type StudentSortKey,
   type SortDir,
 } from "@/lib/students-queries";
+import { getDistrictOptions } from "@/lib/reports-queries";
+import { getSchoolOptions } from "@/lib/activity-queries";
+import { GRADE_LABELS, GENDER_LABELS } from "@/lib/legacy-codes";
 import { DEFAULT_SORT, DEFAULT_DIR } from "@/lib/students-url";
 import { StudentsPagination } from "@/components/students/StudentsPagination";
 import { SortableHeader } from "@/components/students/SortableHeader";
+import { DistrictSchoolFields } from "@/components/students/DistrictSchoolFields";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
 const GRID_COLS = "110px 1fr 1fr 1.4fr";
+
+const GRADE_OPTIONS = Object.entries(GRADE_LABELS) as [string, string][];
+const GENDER_OPTIONS = Object.entries(GENDER_LABELS) as [string, string][];
+
+const selectStyle = {
+  background: "var(--surface-2)",
+  borderColor: "var(--border)",
+  color: "var(--text)",
+} as const;
 
 function parseStatus(value: string | undefined): StudentStatusFilter {
   return value === "active" || value === "inactive" ? value : "all";
@@ -29,16 +42,34 @@ function parseDir(value: string | undefined): SortDir {
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; sort?: string; dir?: string; page?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    status?: string;
+    districtId?: string;
+    schoolId?: string;
+    grade?: string;
+    gender?: string;
+    sort?: string;
+    dir?: string;
+    page?: string;
+  }>;
 }) {
   const params = await searchParams;
   const q = params.q ?? "";
   const status = parseStatus(params.status);
+  const districtId = params.districtId ? Number(params.districtId) : undefined;
+  const schoolId = params.schoolId ? Number(params.schoolId) : undefined;
+  const grade = params.grade && GRADE_LABELS[params.grade] ? params.grade : undefined;
+  const gender = params.gender && GENDER_LABELS[params.gender] ? params.gender : undefined;
   const sort = parseSort(params.sort);
   const dir = parseDir(params.dir);
   const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
 
-  const { students, total } = await getStudentsList({ q, status, sort, dir, page, pageSize: PAGE_SIZE });
+  const [{ students, total }, districts, schools] = await Promise.all([
+    getStudentsList({ q, status, districtId, schoolId, grade, gender, sort, dir, page, pageSize: PAGE_SIZE }),
+    getDistrictOptions(),
+    getSchoolOptions(),
+  ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
@@ -57,24 +88,50 @@ export default async function StudentsPage({
               defaultValue={q}
               placeholder="Enter search term"
               className="w-full rounded-[9px] border px-3 py-2 text-[13px] outline-none"
-              style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
+              style={selectStyle}
             />
           </div>
           <div>
             <label className="mb-1 block text-[12px] font-semibold" style={{ color: "var(--muted)" }}>
               Status
             </label>
-            <select
-              name="status"
-              defaultValue={status}
-              className="rounded-[9px] border px-3 py-2 text-[13px] outline-none"
-              style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
-            >
+            <select name="status" defaultValue={status} className="rounded-[9px] border px-3 py-2 text-[13px] outline-none" style={selectStyle}>
               <option value="all">All</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
           </div>
+
+          <DistrictSchoolFields districts={districts} schools={schools} defaultDistrictId={districtId} defaultSchoolId={schoolId} />
+
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold" style={{ color: "var(--muted)" }}>
+              Grade
+            </label>
+            <select name="grade" defaultValue={grade ?? ""} className="rounded-[9px] border px-3 py-2 text-[13px] outline-none" style={selectStyle}>
+              <option value="">All</option>
+              {GRADE_OPTIONS.map(([code, label]) => (
+                <option key={code} value={code}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold" style={{ color: "var(--muted)" }}>
+              Gender
+            </label>
+            <select name="gender" defaultValue={gender ?? ""} className="rounded-[9px] border px-3 py-2 text-[13px] outline-none" style={selectStyle}>
+              <option value="">All</option>
+              {GENDER_OPTIONS.map(([code, label]) => (
+                <option key={code} value={code}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button
             type="submit"
             className="rounded-[9px] px-5 py-2 text-[13px] font-bold text-white"
@@ -90,10 +147,10 @@ export default async function StudentsPage({
           className="grid px-5 py-3 text-[10.5px] font-extrabold uppercase tracking-[0.05em]"
           style={{ gridTemplateColumns: GRID_COLS, color: "var(--muted)" }}
         >
-          <SortableHeader label="Type" sortKey="type" currentSort={sort} currentDir={dir} q={q} status={status} />
-          <SortableHeader label="First Name" sortKey="firstName" currentSort={sort} currentDir={dir} q={q} status={status} />
-          <SortableHeader label="Last Name" sortKey="lastName" currentSort={sort} currentDir={dir} q={q} status={status} />
-          <SortableHeader label="School" sortKey="school" currentSort={sort} currentDir={dir} q={q} status={status} />
+          <SortableHeader label="Type" sortKey="type" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} schoolId={schoolId} grade={grade} gender={gender} />
+          <SortableHeader label="First Name" sortKey="firstName" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} schoolId={schoolId} grade={grade} gender={gender} />
+          <SortableHeader label="Last Name" sortKey="lastName" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} schoolId={schoolId} grade={grade} gender={gender} />
+          <SortableHeader label="School" sortKey="school" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} schoolId={schoolId} grade={grade} gender={gender} />
         </div>
 
         {students.length === 0 && (
@@ -117,7 +174,19 @@ export default async function StudentsPage({
         ))}
       </div>
 
-      <StudentsPagination page={page} totalPages={totalPages} total={total} q={q} status={status} sort={sort} dir={dir} />
+      <StudentsPagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        q={q}
+        status={status}
+        districtId={districtId}
+        schoolId={schoolId}
+        grade={grade}
+        gender={gender}
+        sort={sort}
+        dir={dir}
+      />
     </div>
   );
 }

@@ -10,6 +10,10 @@ export function SortableHeader({
   currentDir,
   q,
   status,
+  districtId,
+  schoolId,
+  grade,
+  gender,
 }: {
   label: string;
   sortKey: StudentSortKey;
@@ -17,10 +21,14 @@ export function SortableHeader({
   currentDir: SortDir;
   q: string;
   status: StudentStatusFilter;
+  districtId?: number;
+  schoolId?: number;
+  grade?: string;
+  gender?: string;
 }) {
   const active = currentSort === sortKey;
   const nextDir: SortDir = active && currentDir === "asc" ? "desc" : "asc";
-  const href = buildStudentsHref({ q, status, sort: sortKey, dir: nextDir, page: 1 });
+  const href = buildStudentsHref({ q, status, districtId, schoolId, grade, gender, sort: sortKey, dir: nextDir, page: 1 });
 
   return (
     <Link

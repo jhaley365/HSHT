@@ -8,6 +8,10 @@ export function StudentsPagination({
   total,
   q,
   status,
+  districtId,
+  schoolId,
+  grade,
+  gender,
   sort,
   dir,
 }: {
@@ -16,6 +20,10 @@ export function StudentsPagination({
   total: number;
   q: string;
   status: StudentStatusFilter;
+  districtId?: number;
+  schoolId?: number;
+  grade?: string;
+  gender?: string;
   sort: StudentSortKey;
   dir: SortDir;
 }) {
@@ -26,7 +34,11 @@ export function StudentsPagination({
       </span>
       <div className="flex items-center gap-3">
         {page > 1 ? (
-          <Link href={buildStudentsHref({ q, status, sort, dir, page: page - 1 })} className="font-bold" style={{ color: "var(--accent)" }}>
+          <Link
+            href={buildStudentsHref({ q, status, districtId, schoolId, grade, gender, sort, dir, page: page - 1 })}
+            className="font-bold"
+            style={{ color: "var(--accent)" }}
+          >
             Previous
           </Link>
         ) : (
@@ -36,7 +48,11 @@ export function StudentsPagination({
           Page {page} of {totalPages}
         </span>
         {page < totalPages ? (
-          <Link href={buildStudentsHref({ q, status, sort, dir, page: page + 1 })} className="font-bold" style={{ color: "var(--accent)" }}>
+          <Link
+            href={buildStudentsHref({ q, status, districtId, schoolId, grade, gender, sort, dir, page: page + 1 })}
+            className="font-bold"
+            style={{ color: "var(--accent)" }}
+          >
             Next
           </Link>
         ) : (
