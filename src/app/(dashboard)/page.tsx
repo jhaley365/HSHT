@@ -17,7 +17,7 @@ export default async function Home() {
     getEnrollmentTrend(),
     getUpcomingOpenActivities(),
   ]);
-  const kpis = getKpis(coverage, trend.totalEnrolled);
+  const kpis = getKpis(coverage);
 
   return (
     <>

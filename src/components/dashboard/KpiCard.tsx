@@ -8,6 +8,15 @@ const ICONS = {
   person: User,
 };
 
+// Ratio-style values (e.g. "2,286 / 3,412") can run much longer than a
+// plain count ("1 / 1") — shrink the font as needed so the value always
+// fits on one line and every card in the row stays the same height.
+function valueFontSize(value: string): number {
+  if (value.length > 13) return 19;
+  if (value.length > 9) return 23;
+  return 30;
+}
+
 export function KpiCard({ kpi }: { kpi: Kpi }) {
   const Icon = ICONS[kpi.icon];
 
@@ -20,8 +29,8 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
       <div className="flex items-start justify-between">
         <div>
           <div
-            className="text-[30px] font-extrabold leading-none tracking-[-0.02em]"
-            style={{ color: "var(--heading)" }}
+            className="whitespace-nowrap font-extrabold leading-none tracking-[-0.02em]"
+            style={{ color: "var(--heading)", fontSize: valueFontSize(kpi.value) }}
           >
             {kpi.value}
           </div>

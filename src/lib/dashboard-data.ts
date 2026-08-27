@@ -11,23 +11,22 @@ export type Kpi = {
   href: string;
 };
 
-export function getKpis(
-  stats: {
-    totalDistricts: number;
-    totalSchools: number;
-    districtsWithStudents: number;
-    schoolsWithStudents: number;
-    districtsWithCompletedActivities: number;
-    schoolsWithCompletedActivities: number;
-    schoolYearLabel: string | null;
-  },
-  totalEnrolledThisYear: number
-): Kpi[] {
+export function getKpis(stats: {
+  totalStudents: number;
+  studentsServed: number;
+  totalDistricts: number;
+  totalSchools: number;
+  districtsWithStudents: number;
+  schoolsWithStudents: number;
+  districtsWithCompletedActivities: number;
+  schoolsWithCompletedActivities: number;
+  schoolYearLabel: string | null;
+}): Kpi[] {
   return [
     {
       label: "Students",
-      sublabel: "Enrolled this school year",
-      value: totalEnrolledThisYear.toLocaleString(),
+      sublabel: "Students served",
+      value: `${stats.studentsServed.toLocaleString()} / ${stats.totalStudents.toLocaleString()}`,
       icon: "person",
       color: "c1",
       href: "/reports/students",

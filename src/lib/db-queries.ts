@@ -16,6 +16,8 @@ export async function getCoverageStats() {
     : undefined;
 
   const [
+    totalStudents,
+    studentsServed,
     totalDistricts,
     totalSchools,
     districtsWithStudents,
@@ -23,6 +25,13 @@ export async function getCoverageStats() {
     districtsWithCompletedActivities,
     schoolsWithCompletedActivities,
   ] = await Promise.all([
+    prisma.student.count({ where: { active: true } }),
+    // Non-unique — a student assigned to 3 completed activities this school
+    // year counts 3 times, matching what the client asked for ("Students
+    // served" tracks total service instances, not distinct students).
+    prisma.studentActivity.count({
+      where: { deleted: false, activity: { closed: true, deleted: false, activityDate: dateFilter } },
+    }),
     prisma.district.count({ where: { active: true } }),
     prisma.school.count({ where: { active: true } }),
     prisma.district.count({
@@ -43,6 +52,8 @@ export async function getCoverageStats() {
   ]);
 
   return {
+    totalStudents,
+    studentsServed,
     totalDistricts,
     totalSchools,
     districtsWithStudents,
