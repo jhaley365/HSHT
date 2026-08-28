@@ -46,6 +46,7 @@ export const NAV_ITEMS: NavItem[] = [
     expandable: true,
     children: [
       { label: "Students", href: "/reports/students" },
+      { label: "Students Served", href: "/reports/students-served" },
       { label: "Districts (Enrollment)", href: "/reports/districts-enrollment" },
       { label: "Schools (Enrollment)", href: "/reports/schools-enrollment" },
       { label: "Districts (Activities)", href: "/reports/districts-activities" },

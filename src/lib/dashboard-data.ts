@@ -29,7 +29,7 @@ export function getKpis(stats: {
       value: `${stats.studentsServed.toLocaleString()} / ${stats.totalStudents.toLocaleString()}`,
       icon: "person",
       color: "c1",
-      href: "/reports/students",
+      href: "/reports/students-served",
     },
     {
       label: "Districts",

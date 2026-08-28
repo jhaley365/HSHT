@@ -17,11 +17,13 @@ export function StudentsFilterBar({
   districts,
   gradeOptions,
   genderOptions,
+  basePath = "/reports/students",
 }: {
   schools: SchoolOption[];
   districts: DistrictOption[];
   gradeOptions: [string, string][];
   genderOptions: [string, string][];
+  basePath?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,7 +41,7 @@ export function StudentsFilterBar({
       else sp.delete(key);
     }
     const qs = sp.toString();
-    router.push(qs ? `/reports/students?${qs}` : "/reports/students");
+    router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
   // Scope the School dropdown to the selected District, if any, and clear

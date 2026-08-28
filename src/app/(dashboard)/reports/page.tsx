@@ -8,6 +8,11 @@ const REPORTS = [
     description: "Students enrolled in the current school year, with a Quarter filter. Exportable to PDF and XLSX.",
   },
   {
+    href: "/reports/students-served",
+    title: "Students Served",
+    description: "Every student's participation in a completed activity this school year, with District/School/Grade/Gender filters.",
+  },
+  {
     href: "/reports/districts-enrollment",
     title: "Districts — Enrollment",
     description: "Districts with enrolled students, drilled down into their schools and students.",

@@ -50,6 +50,47 @@ export async function getStudentsReport(filters: StudentsReportFilters = {}) {
   return { students, schoolYear };
 }
 
+// Report 1b: Students served — one row per (non-unique) participation in a
+// completed activity this school year, matching the "Students Served" KPI
+// numerator exactly (see db-queries.ts#getCoverageStats' studentsServed).
+// `quarter` narrows by the ACTIVITY's date, not enrollDate, since this
+// report is about when the service happened, not when the student
+// enrolled. School/district/grade/gender filter the student side.
+export async function getStudentsServedReport(filters: StudentsReportFilters = {}) {
+  const { schoolYear, dateFilter } = await currentSchoolYearDateFilter();
+  let activityDate = dateFilter;
+  if (filters.quarter && schoolYear) {
+    const range = getQuarterRange(schoolYear, filters.quarter);
+    activityDate = { gte: range.start, lte: range.end };
+  }
+
+  // Left unset entirely (not even active:true) when no student-side filter
+  // is applied, so the unfiltered count matches the KPI's numerator, which
+  // has no student-level filter at all.
+  const studentFilter: Prisma.StudentWhereInput = {};
+  if (filters.schoolId) studentFilter.schoolId = filters.schoolId;
+  if (filters.districtId) studentFilter.school = { districtId: filters.districtId };
+  if (filters.grade) studentFilter.grade = { startsWith: filters.grade };
+  if (filters.gender) studentFilter.gender = { startsWith: filters.gender };
+
+  const where: Prisma.StudentActivityWhereInput = {
+    deleted: false,
+    activity: { closed: true, deleted: false, activityDate },
+  };
+  if (Object.keys(studentFilter).length > 0) where.student = studentFilter;
+
+  const participations = await prisma.studentActivity.findMany({
+    where,
+    include: {
+      student: { include: { school: { include: { district: true } } } },
+      activity: true,
+    },
+    orderBy: [{ student: { lastName: "asc" } }, { student: { firstName: "asc" } }],
+  });
+
+  return { participations, schoolYear };
+}
+
 // Filter-bar options for the Students report — every active district, used
 // alongside getSchoolOptions() (activity-queries.ts) for the School filter.
 export async function getDistrictOptions() {
