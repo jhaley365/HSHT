@@ -19,6 +19,8 @@ function buildOrderBy(sort: DistrictSortKey, dir: SortDir): Prisma.DistrictOrder
 export async function getDistrictsList({
   q,
   status,
+  schoolId,
+  county,
   sort,
   dir,
   page,
@@ -26,6 +28,8 @@ export async function getDistrictsList({
 }: {
   q: string;
   status: DistrictStatusFilter;
+  schoolId?: number;
+  county?: string;
   sort: DistrictSortKey;
   dir: SortDir;
   page: number;
@@ -40,6 +44,8 @@ export async function getDistrictsList({
       { county: { contains: q, mode: "insensitive" } },
     ];
   }
+  if (schoolId) where.schools = { some: { legacyId: schoolId } };
+  if (county) where.county = county;
 
   const [districts, total] = await Promise.all([
     prisma.district.findMany({

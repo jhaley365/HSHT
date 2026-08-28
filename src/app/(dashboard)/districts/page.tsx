@@ -5,9 +5,12 @@ import {
   type DistrictSortKey,
   type SortDir,
 } from "@/lib/districts-queries";
+import { getSchoolOptions } from "@/lib/activity-queries";
+import { getCountyOptions } from "@/lib/schools-queries";
 import { DEFAULT_SORT, DEFAULT_DIR } from "@/lib/districts-url";
 import { DistrictsPagination } from "@/components/districts/DistrictsPagination";
 import { DistrictSortableHeader } from "@/components/districts/DistrictSortableHeader";
+import { CountySchoolFields } from "@/components/districts/CountySchoolFields";
 
 export const dynamic = "force-dynamic";
 
@@ -29,16 +32,22 @@ function parseDir(value: string | undefined): SortDir {
 export default async function DistrictsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; sort?: string; dir?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; schoolId?: string; county?: string; sort?: string; dir?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const q = params.q ?? "";
   const status = parseStatus(params.status);
+  const schoolId = params.schoolId ? Number(params.schoolId) : undefined;
+  const county = params.county || undefined;
   const sort = parseSort(params.sort);
   const dir = parseDir(params.dir);
   const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
 
-  const { districts, total } = await getDistrictsList({ q, status, sort, dir, page, pageSize: PAGE_SIZE });
+  const [{ districts, total }, schools, counties] = await Promise.all([
+    getDistrictsList({ q, status, schoolId, county, sort, dir, page, pageSize: PAGE_SIZE }),
+    getSchoolOptions(),
+    getCountyOptions(),
+  ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
@@ -75,6 +84,9 @@ export default async function DistrictsPage({
               <option value="inactive">Inactive</option>
             </select>
           </div>
+
+          <CountySchoolFields counties={counties} schools={schools} defaultCounty={county} defaultSchoolId={schoolId} />
+
           <button
             type="submit"
             className="rounded-[9px] px-5 py-2 text-[13px] font-bold text-white"
@@ -90,9 +102,9 @@ export default async function DistrictsPage({
           className="grid px-5 py-3 text-[10.5px] font-extrabold uppercase tracking-[0.05em]"
           style={{ gridTemplateColumns: GRID_COLS, color: "var(--muted)" }}
         >
-          <DistrictSortableHeader label="Code" sortKey="code" currentSort={sort} currentDir={dir} q={q} status={status} />
-          <DistrictSortableHeader label="District" sortKey="name" currentSort={sort} currentDir={dir} q={q} status={status} />
-          <DistrictSortableHeader label="County" sortKey="county" currentSort={sort} currentDir={dir} q={q} status={status} />
+          <DistrictSortableHeader label="Code" sortKey="code" currentSort={sort} currentDir={dir} q={q} status={status} schoolId={schoolId} county={county} />
+          <DistrictSortableHeader label="District" sortKey="name" currentSort={sort} currentDir={dir} q={q} status={status} schoolId={schoolId} county={county} />
+          <DistrictSortableHeader label="County" sortKey="county" currentSort={sort} currentDir={dir} q={q} status={status} schoolId={schoolId} county={county} />
         </div>
 
         {districts.length === 0 && (
@@ -115,7 +127,7 @@ export default async function DistrictsPage({
         ))}
       </div>
 
-      <DistrictsPagination page={page} totalPages={totalPages} total={total} q={q} status={status} sort={sort} dir={dir} />
+      <DistrictsPagination page={page} totalPages={totalPages} total={total} q={q} status={status} schoolId={schoolId} county={county} sort={sort} dir={dir} />
     </div>
   );
 }

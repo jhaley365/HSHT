@@ -8,6 +8,8 @@ export function DistrictsPagination({
   total,
   q,
   status,
+  schoolId,
+  county,
   sort,
   dir,
 }: {
@@ -16,6 +18,8 @@ export function DistrictsPagination({
   total: number;
   q: string;
   status: DistrictStatusFilter;
+  schoolId?: number;
+  county?: string;
   sort: DistrictSortKey;
   dir: SortDir;
 }) {
@@ -26,7 +30,11 @@ export function DistrictsPagination({
       </span>
       <div className="flex items-center gap-3">
         {page > 1 ? (
-          <Link href={buildDistrictsHref({ q, status, sort, dir, page: page - 1 })} className="font-bold" style={{ color: "var(--accent)" }}>
+          <Link
+            href={buildDistrictsHref({ q, status, schoolId, county, sort, dir, page: page - 1 })}
+            className="font-bold"
+            style={{ color: "var(--accent)" }}
+          >
             Previous
           </Link>
         ) : (
@@ -36,7 +44,11 @@ export function DistrictsPagination({
           Page {page} of {totalPages}
         </span>
         {page < totalPages ? (
-          <Link href={buildDistrictsHref({ q, status, sort, dir, page: page + 1 })} className="font-bold" style={{ color: "var(--accent)" }}>
+          <Link
+            href={buildDistrictsHref({ q, status, schoolId, county, sort, dir, page: page + 1 })}
+            className="font-bold"
+            style={{ color: "var(--accent)" }}
+          >
             Next
           </Link>
         ) : (
