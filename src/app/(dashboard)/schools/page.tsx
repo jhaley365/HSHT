@@ -1,13 +1,16 @@
 import Link from "next/link";
 import {
   getSchoolsList,
+  getCountyOptions,
   type SchoolStatusFilter,
   type SchoolSortKey,
   type SortDir,
 } from "@/lib/schools-queries";
+import { getDistrictOptions } from "@/lib/reports-queries";
 import { DEFAULT_SORT, DEFAULT_DIR } from "@/lib/schools-url";
 import { SchoolsPagination } from "@/components/schools/SchoolsPagination";
 import { SchoolSortableHeader } from "@/components/schools/SchoolSortableHeader";
+import { CountyDistrictFields } from "@/components/schools/CountyDistrictFields";
 
 export const dynamic = "force-dynamic";
 
@@ -29,16 +32,22 @@ function parseDir(value: string | undefined): SortDir {
 export default async function SchoolsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; sort?: string; dir?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; districtId?: string; county?: string; sort?: string; dir?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const q = params.q ?? "";
   const status = parseStatus(params.status);
+  const districtId = params.districtId ? Number(params.districtId) : undefined;
+  const county = params.county || undefined;
   const sort = parseSort(params.sort);
   const dir = parseDir(params.dir);
   const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
 
-  const { schools, total } = await getSchoolsList({ q, status, sort, dir, page, pageSize: PAGE_SIZE });
+  const [{ schools, total }, districts, counties] = await Promise.all([
+    getSchoolsList({ q, status, districtId, county, sort, dir, page, pageSize: PAGE_SIZE }),
+    getDistrictOptions(),
+    getCountyOptions(),
+  ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
@@ -75,6 +84,9 @@ export default async function SchoolsPage({
               <option value="inactive">Inactive</option>
             </select>
           </div>
+
+          <CountyDistrictFields counties={counties} districts={districts} defaultCounty={county} defaultDistrictId={districtId} />
+
           <button
             type="submit"
             className="rounded-[9px] px-5 py-2 text-[13px] font-bold text-white"
@@ -90,11 +102,11 @@ export default async function SchoolsPage({
           className="grid px-5 py-3 text-[10.5px] font-extrabold uppercase tracking-[0.05em]"
           style={{ gridTemplateColumns: GRID_COLS, color: "var(--muted)" }}
         >
-          <SchoolSortableHeader label="ID" sortKey="code" currentSort={sort} currentDir={dir} q={q} status={status} />
-          <SchoolSortableHeader label="School" sortKey="name" currentSort={sort} currentDir={dir} q={q} status={status} />
-          <SchoolSortableHeader label="Type" sortKey="type" currentSort={sort} currentDir={dir} q={q} status={status} />
+          <SchoolSortableHeader label="ID" sortKey="code" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} county={county} />
+          <SchoolSortableHeader label="School" sortKey="name" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} county={county} />
+          <SchoolSortableHeader label="Type" sortKey="type" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} county={county} />
           <span>Address</span>
-          <SchoolSortableHeader label="County" sortKey="county" currentSort={sort} currentDir={dir} q={q} status={status} />
+          <SchoolSortableHeader label="County" sortKey="county" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} county={county} />
         </div>
 
         {schools.length === 0 && (
@@ -121,7 +133,7 @@ export default async function SchoolsPage({
         ))}
       </div>
 
-      <SchoolsPagination page={page} totalPages={totalPages} total={total} q={q} status={status} sort={sort} dir={dir} />
+      <SchoolsPagination page={page} totalPages={totalPages} total={total} q={q} status={status} districtId={districtId} county={county} sort={sort} dir={dir} />
     </div>
   );
 }

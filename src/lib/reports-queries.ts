@@ -55,7 +55,7 @@ export async function getStudentsReport(filters: StudentsReportFilters = {}) {
 export async function getDistrictOptions() {
   return prisma.district.findMany({
     where: { active: true },
-    select: { legacyId: true, name: true },
+    select: { legacyId: true, name: true, county: true },
     orderBy: { name: "asc" },
   });
 }

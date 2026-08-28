@@ -25,6 +25,8 @@ function buildOrderBy(sort: SchoolSortKey, dir: SortDir): Prisma.SchoolOrderByWi
 export async function getSchoolsList({
   q,
   status,
+  districtId,
+  county,
   sort,
   dir,
   page,
@@ -32,6 +34,8 @@ export async function getSchoolsList({
 }: {
   q: string;
   status: SchoolStatusFilter;
+  districtId?: number;
+  county?: string;
   sort: SchoolSortKey;
   dir: SortDir;
   page: number;
@@ -46,6 +50,8 @@ export async function getSchoolsList({
       { district: { county: { contains: q, mode: "insensitive" } } },
     ];
   }
+  if (districtId) where.districtId = districtId;
+  if (county) where.district = { county };
 
   const [schools, total] = await Promise.all([
     prisma.school.findMany({
@@ -59,6 +65,19 @@ export async function getSchoolsList({
   ]);
 
   return { schools, total };
+}
+
+// Filter-bar options for the County dropdown — a plain string field on
+// District, not its own entity, so it's just a distinct value list rather
+// than an {id, label} option set.
+export async function getCountyOptions() {
+  const rows = await prisma.district.findMany({
+    where: { active: true },
+    select: { county: true },
+    distinct: ["county"],
+    orderBy: { county: "asc" },
+  });
+  return rows.map((r) => r.county).filter((c): c is string => Boolean(c));
 }
 
 // cache() dedupes this if a future detail page adds more sections that also

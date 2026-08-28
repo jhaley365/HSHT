@@ -8,6 +8,8 @@ export function SchoolsPagination({
   total,
   q,
   status,
+  districtId,
+  county,
   sort,
   dir,
 }: {
@@ -16,6 +18,8 @@ export function SchoolsPagination({
   total: number;
   q: string;
   status: SchoolStatusFilter;
+  districtId?: number;
+  county?: string;
   sort: SchoolSortKey;
   dir: SortDir;
 }) {
@@ -26,7 +30,11 @@ export function SchoolsPagination({
       </span>
       <div className="flex items-center gap-3">
         {page > 1 ? (
-          <Link href={buildSchoolsHref({ q, status, sort, dir, page: page - 1 })} className="font-bold" style={{ color: "var(--accent)" }}>
+          <Link
+            href={buildSchoolsHref({ q, status, districtId, county, sort, dir, page: page - 1 })}
+            className="font-bold"
+            style={{ color: "var(--accent)" }}
+          >
             Previous
           </Link>
         ) : (
@@ -36,7 +44,11 @@ export function SchoolsPagination({
           Page {page} of {totalPages}
         </span>
         {page < totalPages ? (
-          <Link href={buildSchoolsHref({ q, status, sort, dir, page: page + 1 })} className="font-bold" style={{ color: "var(--accent)" }}>
+          <Link
+            href={buildSchoolsHref({ q, status, districtId, county, sort, dir, page: page + 1 })}
+            className="font-bold"
+            style={{ color: "var(--accent)" }}
+          >
             Next
           </Link>
         ) : (

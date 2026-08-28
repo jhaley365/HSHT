@@ -10,6 +10,8 @@ export function SchoolSortableHeader({
   currentDir,
   q,
   status,
+  districtId,
+  county,
 }: {
   label: string;
   sortKey: SchoolSortKey;
@@ -17,10 +19,12 @@ export function SchoolSortableHeader({
   currentDir: SortDir;
   q: string;
   status: SchoolStatusFilter;
+  districtId?: number;
+  county?: string;
 }) {
   const active = currentSort === sortKey;
   const nextDir: SortDir = active && currentDir === "asc" ? "desc" : "asc";
-  const href = buildSchoolsHref({ q, status, sort: sortKey, dir: nextDir, page: 1 });
+  const href = buildSchoolsHref({ q, status, districtId, county, sort: sortKey, dir: nextDir, page: 1 });
 
   return (
     <Link
