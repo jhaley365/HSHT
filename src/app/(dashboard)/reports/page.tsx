@@ -73,6 +73,11 @@ const LEGACY_REPORTS = [
     title: "Enrollment by District",
     description: "Every active student's district and school, drilled down into the students there. Not scoped to a school year.",
   },
+  {
+    href: "/reports/enrollment-by-district-school",
+    title: "Enrollment by District/School",
+    description: "Every district's schools with the number of students enrolled there — any school year, with a Quarter filter.",
+  },
 ];
 
 export default async function ReportsPage() {

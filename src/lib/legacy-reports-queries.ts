@@ -573,3 +573,65 @@ export async function getEnrollmentByDistrict() {
 
   return [...byDistrict.values()].sort((a, b) => b.total - a.total);
 }
+
+export type DistrictSchoolEnrollmentSchoolGroup = {
+  schoolId: number;
+  schoolName: string;
+  total: number;
+};
+
+export type DistrictSchoolEnrollmentGroup = {
+  districtId: number;
+  districtName: string;
+  schools: DistrictSchoolEnrollmentSchoolGroup[];
+  total: number;
+};
+
+// Enrollment by District/School — every district's schools with the count
+// of students enrolled there, per reports-district-schools-enrollment.cfm.
+// The legacy page let a past school year fall back to a separate
+// StudentArchive table (with a "quartercount" variable that was always 0 —
+// dead code), and its Quarter narrowing had an off-by-one bug that widened
+// Quarters 1-3 to always run through the end of the school year. Rather
+// than replicate that, this scopes strictly to Student.enrollDate within
+// the selected school year/quarter, matching every other report's
+// enrollment counting (see getStudentsReport in reports-queries.ts).
+export async function getEnrollmentByDistrictSchool(filters: CoordinatorSummaryFilters = {}) {
+  const schoolYear = filters.schoolYearId
+    ? await prisma.schoolYear.findUnique({ where: { legacyId: filters.schoolYearId } })
+    : await getCurrentSchoolYear();
+
+  let enrollDate = schoolYear?.beginDate ? { gte: schoolYear.beginDate, lte: schoolYear.endDate ?? undefined } : undefined;
+  if (filters.quarter && schoolYear) {
+    const range = getQuarterRange(schoolYear, filters.quarter);
+    enrollDate = { gte: range.start, lte: range.end };
+  }
+
+  const districts = await prisma.district.findMany({
+    where: { active: true, schools: { some: { students: { some: { active: true, enrollDate } } } } },
+    include: {
+      schools: {
+        where: { active: true, students: { some: { active: true, enrollDate } } },
+        include: { _count: { select: { students: { where: { active: true, enrollDate } } } } },
+        orderBy: { name: "asc" },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  const groups: DistrictSchoolEnrollmentGroup[] = districts.map((district) => {
+    const schools = district.schools.map((school) => ({
+      schoolId: school.legacyId,
+      schoolName: school.name,
+      total: school._count.students,
+    }));
+    return {
+      districtId: district.legacyId,
+      districtName: district.name,
+      schools,
+      total: schools.reduce((sum, school) => sum + school.total, 0),
+    };
+  });
+
+  return { groups, schoolYear };
+}
