@@ -78,6 +78,11 @@ const LEGACY_REPORTS = [
     title: "Enrollment by District/School",
     description: "Every district's schools with the number of students enrolled there — any school year, with a Quarter filter.",
   },
+  {
+    href: "/reports/enrollment-demographics",
+    title: "Enrollment Demographics",
+    description: "A full demographic breakdown of the current school year's active students: gender, race, grade, age, disability categories, and more.",
+  },
 ];
 
 export default async function ReportsPage() {

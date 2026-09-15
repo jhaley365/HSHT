@@ -635,3 +635,170 @@ export async function getEnrollmentByDistrictSchool(filters: CoordinatorSummaryF
 
   return { groups, schoolYear };
 }
+
+export type DemographicsRow = {
+  label: string;
+  amount: number;
+  percent: number | null;
+};
+
+function pct(count: number, total: number): number {
+  return total === 0 ? 0 : (count / total) * 100;
+}
+
+// Enrollment Demographics — a broad snapshot of the current school year's
+// active students, per reports-percentages-new.cfm / -queries.cfm.
+//
+// The legacy report also let you browse past school years, computing the
+// same breakdown from a StudentArchive snapshot table instead of the live
+// Students table. This app's StudentArchive only carries the fields the
+// legacy archive itself carried forward (name, race, gender, grade,
+// birthDate, county) — not the disability flags, VR/EIP/504 flags, or
+// reportable/HSHT split the rest of this report needs — so a past-year
+// view here would silently show 0 for most rows instead of a real number.
+// Rather than ship that, this is scoped to the current school year only,
+// matching the legacy page's own default (no year selected) view.
+export async function getEnrollmentDemographics(): Promise<{ schoolYear: Awaited<ReturnType<typeof getCurrentSchoolYear>>; rows: DemographicsRow[] }> {
+  const schoolYear = await getCurrentSchoolYear();
+  if (!schoolYear?.beginDate || !schoolYear.endDate) {
+    return { schoolYear, rows: [] };
+  }
+  const dateRange = { gte: schoolYear.beginDate, lte: schoolYear.endDate };
+
+  const students = await prisma.student.findMany({
+    where: { active: true },
+    select: {
+      legacyId: true,
+      gender: true,
+      race: true,
+      grade: true,
+      birthDate: true,
+      reportableStudent: true,
+      autism: true,
+      aspergers: true,
+      deaf: true,
+      ebd: true,
+      mobility: true,
+      ohi: true,
+      orthopedic: true,
+      speech: true,
+      sld: true,
+      spinal: true,
+      tbi: true,
+      visual: true,
+      otherDisability: true,
+      section504: true,
+      eip: true,
+      vocationalRehab: true,
+      school: { select: { districtId: true } },
+    },
+  });
+  // Grade/gender/race are legacy nchar columns and may carry trailing
+  // padding (see legacy-codes.ts) — trim before comparing against a code.
+  for (const s of students) {
+    s.gender = s.gender?.trim() ?? s.gender;
+    s.race = s.race?.trim() ?? s.race;
+    s.grade = s.grade?.trim() ?? s.grade;
+  }
+  const total = students.length;
+
+  const districtIds = new Set(students.map((s) => s.school.districtId));
+  const [totalSchools, districts] = await Promise.all([
+    prisma.school.count(),
+    prisma.district.findMany({ where: { legacyId: { in: [...districtIds] } }, select: { county: true } }),
+  ]);
+  const totalCounties = new Set(districts.map((d) => d.county)).size;
+
+  const activityDetails = await prisma.activityDetail.findMany({
+    where: { activity: { deleted: false, activityDate: dateRange } },
+    include: { activity: { include: { studentActivities: { where: { deleted: false } } } } },
+  });
+  const totalTransitionServices = activityDetails.reduce((sum, detail) => sum + detail.activity.studentActivities.length, 0);
+
+  const schoolYearBeginDate = schoolYear.beginDate;
+  const schoolYearEndDate = schoolYear.endDate;
+  function ageRangeYearsAgo(years: number) {
+    const shift = (d: Date) => {
+      const shifted = new Date(d);
+      shifted.setFullYear(shifted.getFullYear() - years);
+      return shifted;
+    };
+    return { start: shift(schoolYearBeginDate), end: shift(schoolYearEndDate) };
+  }
+  function countAge(minExclusive: Date | null, maxInclusive: Date) {
+    return students.filter((s) => s.birthDate && s.birthDate > (minExclusive ?? new Date(0)) && s.birthDate <= maxInclusive).length;
+  }
+  const under14Cutoff = ageRangeYearsAgo(14).end;
+  const under14 = students.filter((s) => s.birthDate && s.birthDate > under14Cutoff).length;
+
+  const studentIds = students.map((s) => s.legacyId);
+  const twelfthGrade = students.filter((s) => s.grade === "5").length;
+  const [graduated, postSecondary] = await Promise.all([
+    // Unlike every other row here, the legacy query doesn't scope this to
+    // active students — a student who graduated may since be marked
+    // inactive, and this is meant to count them anyway.
+    prisma.studentOutcome.count({
+      where: { graduated: true, graduateDate: dateRange },
+    }),
+    prisma.studentOutcome.count({
+      where: { postSecondary: { not: "" }, studentId: { in: studentIds } },
+    }),
+  ]);
+
+  const grade = (code: string) => students.filter((s) => s.grade === code).length;
+
+  const rows: DemographicsRow[] = [
+    { label: "Total Students", amount: total, percent: null },
+    { label: "Total Students (HSHT)", amount: students.filter((s) => !s.reportableStudent).length, percent: null },
+    { label: "Total Students (Reportable)", amount: students.filter((s) => s.reportableStudent).length, percent: null },
+    { label: "Total High Schools", amount: totalSchools, percent: null },
+    { label: "Total Counties", amount: totalCounties, percent: null },
+    { label: "Total School Systems", amount: districtIds.size, percent: null },
+    { label: "Total Transition Services", amount: totalTransitionServices, percent: null },
+    { label: "Male", amount: students.filter((s) => s.gender === "1").length, percent: pct(students.filter((s) => s.gender === "1").length, total) },
+    { label: "Female", amount: students.filter((s) => s.gender === "0").length, percent: pct(students.filter((s) => s.gender === "0").length, total) },
+    { label: "Black", amount: students.filter((s) => s.race === "3").length, percent: pct(students.filter((s) => s.race === "3").length, total) },
+    { label: "White", amount: students.filter((s) => s.race === "5").length, percent: pct(students.filter((s) => s.race === "5").length, total) },
+    {
+      label: "Multiracial or Other",
+      amount: students.filter((s) => s.race !== "3" && s.race !== "5").length,
+      percent: pct(students.filter((s) => s.race !== "3" && s.race !== "5").length, total),
+    },
+    { label: "8th Grade", amount: grade("1"), percent: pct(grade("1"), total) },
+    { label: "9th Grade", amount: grade("2"), percent: pct(grade("2"), total) },
+    { label: "10th Grade", amount: grade("3"), percent: pct(grade("3"), total) },
+    { label: "11th Grade", amount: grade("4"), percent: pct(grade("4"), total) },
+    { label: "12th Grade", amount: grade("5"), percent: pct(grade("5"), total) },
+    { label: "Other (Out of School)", amount: grade("6"), percent: pct(grade("6"), total) },
+    { label: "Under 14 years", amount: under14, percent: pct(under14, total) },
+    ...[14, 15, 16, 17, 18, 19, 20, 21, 22].map((age) => {
+      const range = ageRangeYearsAgo(age);
+      const count = countAge(range.start, range.end);
+      return { label: `${age} years`, amount: count, percent: pct(count, total) };
+    }),
+    { label: "Autism", amount: students.filter((s) => s.autism).length, percent: pct(students.filter((s) => s.autism).length, total) },
+    { label: "Asperger's", amount: students.filter((s) => s.aspergers).length, percent: pct(students.filter((s) => s.aspergers).length, total) },
+    { label: "Deaf/hard of hearing", amount: students.filter((s) => s.deaf).length, percent: pct(students.filter((s) => s.deaf).length, total) },
+    { label: "Emotional Behavioral Disorder", amount: students.filter((s) => s.ebd).length, percent: pct(students.filter((s) => s.ebd).length, total) },
+    { label: "Mobility", amount: students.filter((s) => s.mobility).length, percent: pct(students.filter((s) => s.mobility).length, total) },
+    { label: "Orthopedic impairment", amount: students.filter((s) => s.orthopedic).length, percent: pct(students.filter((s) => s.orthopedic).length, total) },
+    { label: "Other", amount: students.filter((s) => s.otherDisability).length, percent: pct(students.filter((s) => s.otherDisability).length, total) },
+    { label: "Other health impairment", amount: students.filter((s) => s.ohi).length, percent: pct(students.filter((s) => s.ohi).length, total) },
+    { label: "Specific learning disability", amount: students.filter((s) => s.sld).length, percent: pct(students.filter((s) => s.sld).length, total) },
+    { label: "Speech or language impairment", amount: students.filter((s) => s.speech).length, percent: pct(students.filter((s) => s.speech).length, total) },
+    { label: "Spinal cord injury", amount: students.filter((s) => s.spinal).length, percent: pct(students.filter((s) => s.spinal).length, total) },
+    { label: "Traumatic brain injury", amount: students.filter((s) => s.tbi).length, percent: pct(students.filter((s) => s.tbi).length, total) },
+    { label: "Visual impairment", amount: students.filter((s) => s.visual).length, percent: pct(students.filter((s) => s.visual).length, total) },
+    {
+      label: "Vocational Rehabilitation",
+      amount: students.filter((s) => s.vocationalRehab).length,
+      percent: pct(students.filter((s) => s.vocationalRehab).length, total),
+    },
+    { label: "Have EIP", amount: students.filter((s) => s.eip).length, percent: pct(students.filter((s) => s.eip).length, total) },
+    { label: "Have 504", amount: students.filter((s) => s.section504).length, percent: pct(students.filter((s) => s.section504).length, total) },
+    { label: `Graduated (${schoolYear.label})`, amount: graduated, percent: pct(graduated, twelfthGrade) },
+    { label: "Post Secondary", amount: postSecondary, percent: pct(postSecondary, total) },
+  ];
+
+  return { schoolYear, rows };
+}

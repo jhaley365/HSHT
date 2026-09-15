@@ -59,6 +59,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Enrollment by School", href: "/reports/enrollment-by-school" },
       { label: "Enrollment by District", href: "/reports/enrollment-by-district" },
       { label: "Enrollment by District/School", href: "/reports/enrollment-by-district-school" },
+      { label: "Enrollment Demographics", href: "/reports/enrollment-demographics" },
     ],
   },
   { label: "Enrollment Forms", href: "/enrollment-forms", icon: ClipboardList },
