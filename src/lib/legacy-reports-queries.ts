@@ -802,3 +802,56 @@ export async function getEnrollmentDemographics(): Promise<{ schoolYear: Awaited
 
   return { schoolYear, rows };
 }
+
+export type StudentActivityParticipatedRow = {
+  studentLegacyId: number;
+  firstName: string | null;
+  lastName: string | null;
+  schoolId: number;
+  schoolName: string;
+};
+
+// Student Activity Participated — every distinct student with at least one
+// activity participation record in the selected school year, per
+// reports-students-activity-participated.cfm.
+//
+// The legacy page was hardcoded to a single stale year (SchoolYear=
+// '2020-2021') and scoped by StudentActivity.CreateDate (when the record
+// was entered) rather than the activity's own date — this version makes
+// the school year selectable like every other legacy report, and scopes by
+// Activity.activityDate for consistency with how every other report here
+// counts participation.
+export async function getStudentActivityParticipated(filters: CoordinatorSummaryFilters = {}) {
+  const schoolYear = filters.schoolYearId
+    ? await prisma.schoolYear.findUnique({ where: { legacyId: filters.schoolYearId } })
+    : await getCurrentSchoolYear();
+
+  let activityDate = schoolYear?.beginDate ? { gte: schoolYear.beginDate, lte: schoolYear.endDate ?? undefined } : undefined;
+  if (filters.quarter && schoolYear) {
+    const range = getQuarterRange(schoolYear, filters.quarter);
+    activityDate = { gte: range.start, lte: range.end };
+  }
+
+  const studentActivities = await prisma.studentActivity.findMany({
+    where: { deleted: false, activity: { deleted: false, activityDate } },
+    select: { student: { select: { legacyId: true, firstName: true, lastName: true, schoolId: true, school: { select: { name: true } } } } },
+  });
+
+  const byStudent = new Map<number, StudentActivityParticipatedRow>();
+  for (const { student } of studentActivities) {
+    if (byStudent.has(student.legacyId)) continue;
+    byStudent.set(student.legacyId, {
+      studentLegacyId: student.legacyId,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      schoolId: student.schoolId,
+      schoolName: student.school.name,
+    });
+  }
+
+  const rows = [...byStudent.values()].sort(
+    (a, b) => a.schoolName.localeCompare(b.schoolName) || (a.lastName ?? "").localeCompare(b.lastName ?? "")
+  );
+
+  return { rows, schoolYear };
+}

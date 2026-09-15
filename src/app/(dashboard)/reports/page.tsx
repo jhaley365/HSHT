@@ -83,6 +83,11 @@ const LEGACY_REPORTS = [
     title: "Enrollment Demographics",
     description: "A full demographic breakdown of the current school year's active students: gender, race, grade, age, disability categories, and more.",
   },
+  {
+    href: "/reports/student-activity-participated",
+    title: "Student Activity Participated",
+    description: "Every distinct student with at least one activity participation this school year — any school year.",
+  },
 ];
 
 export default async function ReportsPage() {
