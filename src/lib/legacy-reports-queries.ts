@@ -122,3 +122,120 @@ export async function getActivityByCoordinatorSummary(filters: CoordinatorSummar
 
   return { groups, schoolYear };
 }
+
+export type CoordinatorDetailRow = {
+  activityLegacyId: number;
+  activityDate: Date | null;
+  detailDescription: string;
+  activityDescription: string;
+  qty: number;
+};
+
+export type CoordinatorDetailSchoolGroup = {
+  schoolId: number;
+  schoolName: string;
+  rows: CoordinatorDetailRow[];
+};
+
+export type CoordinatorDetailGroup = {
+  coordinatorId: number;
+  coordinatorName: string;
+  schools: CoordinatorDetailSchoolGroup[];
+  total: number;
+};
+
+// Activity Detail by Coordinator — for each HSHT coordinator, each school,
+// and each Activity they ran there, one row per checklist item logged
+// against that activity (ActivityDetail, joined per
+// reports-coordinator-activity-sum.cfm). QTY on each row is the activity's
+// total participation (count of non-deleted StudentActivity rows), matching
+// the legacy report's per-row query — so an activity with several checklist
+// items shows that same participation count once per item, and the
+// coordinator's "Total Activity Participation" sums across every item, not
+// just every activity. That's how both the legacy HTML report and its PDF
+// export (reports-coordinator-activity-sum-pdf.cfm) compute the total, so
+// it's kept as-is rather than "corrected" — it reads as each checklist item
+// being counted as its own unit of participation, not as a double-count bug.
+export async function getActivityByCoordinatorDetails(filters: CoordinatorSummaryFilters = {}) {
+  const schoolYear = filters.schoolYearId
+    ? await prisma.schoolYear.findUnique({ where: { legacyId: filters.schoolYearId } })
+    : await getCurrentSchoolYear();
+
+  let activityDate = schoolYear?.beginDate ? { gte: schoolYear.beginDate, lte: schoolYear.endDate ?? undefined } : undefined;
+  if (filters.quarter && schoolYear) {
+    const range = getQuarterRange(schoolYear, filters.quarter);
+    activityDate = { gte: range.start, lte: range.end };
+  }
+
+  const activities = await prisma.activity.findMany({
+    where: { coordinatorId: { not: null }, deleted: false, activityDate },
+    include: {
+      school: true,
+      details: { orderBy: { description: "asc" } },
+      studentActivities: { where: { deleted: false } },
+    },
+    orderBy: { legacyId: "asc" },
+  });
+
+  const coordinatorIds = [...new Set(activities.map((a) => a.coordinatorId as number))];
+  const coordinators = await prisma.coordinator.findMany({ where: { legacyId: { in: coordinatorIds } } });
+  const coordinatorById = new Map(coordinators.map((c) => [c.legacyId, c]));
+
+  const byCoordinator = new Map<number, Map<number, CoordinatorDetailRow[]>>();
+
+  for (const activity of activities) {
+    const coordinatorId = activity.coordinatorId;
+    if (!coordinatorId || activity.details.length === 0) continue;
+    const qty = activity.studentActivities.length;
+
+    let schoolMap = byCoordinator.get(coordinatorId);
+    if (!schoolMap) byCoordinator.set(coordinatorId, (schoolMap = new Map()));
+
+    let rows = schoolMap.get(activity.schoolId);
+    if (!rows) schoolMap.set(activity.schoolId, (rows = []));
+
+    for (const detail of activity.details) {
+      rows.push({
+        activityLegacyId: activity.legacyId,
+        activityDate: activity.activityDate,
+        detailDescription: detail.description,
+        activityDescription: activity.description ?? activity.name,
+        qty,
+      });
+    }
+  }
+
+  const schoolNameById = new Map(activities.map((a) => [a.schoolId, a.school.name]));
+
+  const groups: CoordinatorDetailGroup[] = [];
+  for (const [coordinatorId, schoolMap] of byCoordinator) {
+    const coordinator = coordinatorById.get(coordinatorId);
+    const schools: CoordinatorDetailSchoolGroup[] = [];
+    let total = 0;
+    for (const [schoolId, rows] of schoolMap) {
+      rows.sort((a, b) => {
+        if (a.activityLegacyId !== b.activityLegacyId) return a.activityLegacyId - b.activityLegacyId;
+        const dateA = a.activityDate?.getTime() ?? 0;
+        const dateB = b.activityDate?.getTime() ?? 0;
+        if (dateA !== dateB) return dateA - dateB;
+        return a.detailDescription.localeCompare(b.detailDescription);
+      });
+      total += rows.reduce((sum, row) => sum + row.qty, 0);
+      schools.push({ schoolId, schoolName: schoolNameById.get(schoolId) ?? "Unknown School", rows });
+    }
+    schools.sort((a, b) => a.schoolName.localeCompare(b.schoolName));
+    groups.push({
+      coordinatorId,
+      coordinatorName: [coordinator?.firstName, coordinator?.lastName].filter(Boolean).join(" ") || "Unknown Coordinator",
+      schools,
+      total,
+    });
+  }
+  groups.sort((a, b) => {
+    const lastA = coordinatorById.get(a.coordinatorId)?.lastName ?? "";
+    const lastB = coordinatorById.get(b.coordinatorId)?.lastName ?? "";
+    return lastA.localeCompare(lastB);
+  });
+
+  return { groups, schoolYear };
+}
