@@ -347,3 +347,83 @@ export async function getActivityByDistrictSchool(filters: CoordinatorSummaryFil
 
   return { groups, schoolYear };
 }
+
+export type PreetsFilters = { schoolYearId?: number; quarter?: Quarter; districtId?: number };
+export type PreetsSubItem = { description: string; qty: number };
+export type PreetsGroup = { group: string; qty: number; items: PreetsSubItem[] };
+export type PreetsOtherItem = { label: string; qty: number };
+
+// Activity by PREETS — for each ActivityItem "group" (a PREETS category),
+// the total participation count and a breakdown by ActivityDetail
+// description, per reports-activity-preets-sum.cfm. Three specific
+// ActivityItem natural-key IDs (27 Transportation, 28 Mentoring, 38 Driver
+// Training) are pulled out of their normal group into a fixed "(F) Other"
+// bucket, matching the legacy report exactly.
+//
+// The legacy site's District filter actually links to a DIFFERENT page
+// (reports-activity-preets-sum-details.cfm) that groups by Activity.preets
+// instead of ActivityItem.group — an inconsistency with the main report,
+// and Activity.preets' meaning isn't confirmed against any other report in
+// this app. Rather than carry that inconsistency forward, the District
+// filter here narrows the same ActivityItem.group-based aggregation used by
+// the "All" view.
+//
+// QTY follows the same per-checklist-item participation counting used by
+// the coordinator/district reports (see getActivityByCoordinatorDetails).
+export async function getActivityByPreets(filters: PreetsFilters = {}) {
+  const schoolYear = filters.schoolYearId
+    ? await prisma.schoolYear.findUnique({ where: { legacyId: filters.schoolYearId } })
+    : await getCurrentSchoolYear();
+
+  let activityDate = schoolYear?.beginDate ? { gte: schoolYear.beginDate, lte: schoolYear.endDate ?? undefined } : undefined;
+  if (filters.quarter && schoolYear) {
+    const range = getQuarterRange(schoolYear, filters.quarter);
+    activityDate = { gte: range.start, lte: range.end };
+  }
+
+  const details = await prisma.activityDetail.findMany({
+    where: {
+      activity: {
+        deleted: false,
+        activityDate,
+        ...(filters.districtId ? { school: { districtId: filters.districtId } } : {}),
+      },
+    },
+    include: {
+      activityItem: true,
+      activity: { include: { studentActivities: { where: { deleted: false } } } },
+    },
+  });
+
+  const OTHER_LABELS: Record<number, string> = { 38: "Driver Training", 28: "Mentoring", 27: "Transportation" };
+  const groupMap = new Map<string, Map<string, number>>();
+  const otherTotals = new Map<number, number>([[38, 0], [28, 0], [27, 0]]);
+
+  for (const detail of details) {
+    const qty = detail.activity.studentActivities.length;
+    if (detail.activityItemId in OTHER_LABELS) {
+      otherTotals.set(detail.activityItemId, (otherTotals.get(detail.activityItemId) ?? 0) + qty);
+      continue;
+    }
+    const group = detail.activityItem.group ?? "Uncategorized";
+    let descMap = groupMap.get(group);
+    if (!descMap) groupMap.set(group, (descMap = new Map()));
+    descMap.set(detail.description, (descMap.get(detail.description) ?? 0) + qty);
+  }
+
+  const groups: PreetsGroup[] = [...groupMap.entries()]
+    .map(([group, descMap]) => {
+      const items = [...descMap.entries()]
+        .map(([description, qty]) => ({ description, qty }))
+        .sort((a, b) => a.description.localeCompare(b.description));
+      const qty = items.reduce((sum, item) => sum + item.qty, 0);
+      return { group, qty, items };
+    })
+    .sort((a, b) => a.group.localeCompare(b.group));
+
+  const otherItems: PreetsOtherItem[] = [38, 28, 27].map((id) => ({ label: OTHER_LABELS[id], qty: otherTotals.get(id) ?? 0 }));
+  const otherTotal = otherItems.reduce((sum, item) => sum + item.qty, 0);
+  const grandTotal = groups.reduce((sum, group) => sum + group.qty, 0) + otherTotal;
+
+  return { groups, otherItems, otherTotal, grandTotal, schoolYear };
+}

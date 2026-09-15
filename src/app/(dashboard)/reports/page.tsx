@@ -58,6 +58,11 @@ const LEGACY_REPORTS = [
     title: "Activity by District/School (Details)",
     description: "Same as Activity by District/School, drilled down further into the names of participating students for each activity item.",
   },
+  {
+    href: "/reports/activity-by-preets",
+    title: "Activity by PREETS",
+    description: "Student participation grouped by PREETS category and activity item, with a District filter — any school year, with a Quarter filter.",
+  },
 ];
 
 export default async function ReportsPage() {
