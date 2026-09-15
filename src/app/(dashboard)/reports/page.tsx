@@ -48,6 +48,16 @@ const LEGACY_REPORTS = [
     title: "Activity Detail by Coordinator",
     description: "Each HSHT coordinator's activity, by school and individual activity item, with the number of students served — any school year, with a Quarter filter.",
   },
+  {
+    href: "/reports/activity-by-district-school",
+    title: "Activity by District/School",
+    description: "Every district's schools and their activity items, with the number of students served — any school year, with a Quarter filter.",
+  },
+  {
+    href: "/reports/activity-by-district-school-details",
+    title: "Activity by District/School (Details)",
+    description: "Same as Activity by District/School, drilled down further into the names of participating students for each activity item.",
+  },
 ];
 
 export default async function ReportsPage() {

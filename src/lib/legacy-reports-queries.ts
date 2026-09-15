@@ -239,3 +239,111 @@ export async function getActivityByCoordinatorDetails(filters: CoordinatorSummar
 
   return { groups, schoolYear };
 }
+
+export type DistrictSchoolRow = {
+  activityLegacyId: number;
+  activityDate: Date | null;
+  detailDescription: string;
+  qty: number;
+  students: { firstName: string | null; lastName: string | null }[];
+};
+
+export type DistrictSchoolGroupSchools = {
+  schoolId: number;
+  schoolName: string;
+  rows: DistrictSchoolRow[];
+};
+
+export type DistrictSchoolGroup = {
+  districtId: number;
+  districtName: string;
+  schools: DistrictSchoolGroupSchools[];
+  total: number;
+};
+
+// Activity by District/School — every school's activity, one row per
+// checklist item logged against it (per reports-district-schools-activity-
+// sum.cfm), with the participating students' names attached to each row.
+// This backs both "Activity by District/School" (which doesn't render the
+// student names) and "Activity by District/School (Details)" (which does).
+// The legacy site actually had THREE separate pages here —
+// reports-district-schools-activity-sum.cfm (no student names),
+// -details.cfm and -details-with-students.cfm — but the latter two ran the
+// identical query and only differed in cosmetic text formatting (one wrote
+// "(id) description", the other "[First Last]" with brackets); there was no
+// second, more-detailed report to preserve. They're consolidated into one
+// "(Details)" page here rather than shipped as two near-duplicates.
+//
+// Like the coordinator reports, QTY is the activity's total participation
+// count, shown once per checklist item — see getActivityByCoordinatorDetails
+// for why that's kept rather than "corrected". Unlike the coordinator
+// reports, the legacy query here didn't filter out deleted activities; this
+// version does, for consistency with every other report in the app.
+export async function getActivityByDistrictSchool(filters: CoordinatorSummaryFilters = {}) {
+  const schoolYear = filters.schoolYearId
+    ? await prisma.schoolYear.findUnique({ where: { legacyId: filters.schoolYearId } })
+    : await getCurrentSchoolYear();
+
+  let activityDate = schoolYear?.beginDate ? { gte: schoolYear.beginDate, lte: schoolYear.endDate ?? undefined } : undefined;
+  if (filters.quarter && schoolYear) {
+    const range = getQuarterRange(schoolYear, filters.quarter);
+    activityDate = { gte: range.start, lte: range.end };
+  }
+
+  const activities = await prisma.activity.findMany({
+    where: { deleted: false, activityDate },
+    include: {
+      school: { include: { district: true } },
+      details: true,
+      studentActivities: { where: { deleted: false }, include: { student: true } },
+    },
+    orderBy: { legacyId: "asc" },
+  });
+
+  const byDistrict = new Map<number, Map<number, DistrictSchoolRow[]>>();
+
+  for (const activity of activities) {
+    if (activity.details.length === 0) continue;
+    const districtId = activity.school.districtId;
+    const qty = activity.studentActivities.length;
+    const students = activity.studentActivities
+      .filter((sa) => sa.student.schoolId === activity.schoolId)
+      .map((sa) => ({ firstName: sa.student.firstName, lastName: sa.student.lastName }))
+      .sort((a, b) => (a.firstName ?? "").localeCompare(b.firstName ?? "") || (a.lastName ?? "").localeCompare(b.lastName ?? ""));
+
+    let schoolMap = byDistrict.get(districtId);
+    if (!schoolMap) byDistrict.set(districtId, (schoolMap = new Map()));
+
+    let rows = schoolMap.get(activity.schoolId);
+    if (!rows) schoolMap.set(activity.schoolId, (rows = []));
+
+    for (const detail of activity.details) {
+      rows.push({
+        activityLegacyId: activity.legacyId,
+        activityDate: activity.activityDate,
+        detailDescription: detail.description,
+        qty,
+        students,
+      });
+    }
+  }
+
+  const schoolInfoById = new Map(activities.map((a) => [a.schoolId, { name: a.school.name, districtName: a.school.district.name }]));
+
+  const groups: DistrictSchoolGroup[] = [];
+  for (const [districtId, schoolMap] of byDistrict) {
+    const schools: DistrictSchoolGroupSchools[] = [];
+    let total = 0;
+    for (const [schoolId, rows] of schoolMap) {
+      rows.sort((a, b) => a.detailDescription.localeCompare(b.detailDescription) || a.activityLegacyId - b.activityLegacyId);
+      total += rows.reduce((sum, row) => sum + row.qty, 0);
+      schools.push({ schoolId, schoolName: schoolInfoById.get(schoolId)?.name ?? "Unknown School", rows });
+    }
+    schools.sort((a, b) => a.schoolName.localeCompare(b.schoolName));
+    const districtName = [...schoolMap.keys()].map((id) => schoolInfoById.get(id)?.districtName).find(Boolean) ?? "Unknown District";
+    groups.push({ districtId, districtName, schools, total });
+  }
+  groups.sort((a, b) => a.districtName.localeCompare(b.districtName));
+
+  return { groups, schoolYear };
+}
