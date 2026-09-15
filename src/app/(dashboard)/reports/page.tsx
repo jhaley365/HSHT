@@ -68,6 +68,11 @@ const LEGACY_REPORTS = [
     title: "Enrollment by School",
     description: "Every active student's school, drilled down into the students there, with an All/HSHT/Reportable toggle.",
   },
+  {
+    href: "/reports/enrollment-by-district",
+    title: "Enrollment by District",
+    description: "Every active student's district and school, drilled down into the students there. Not scoped to a school year.",
+  },
 ];
 
 export default async function ReportsPage() {

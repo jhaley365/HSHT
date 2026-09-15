@@ -504,3 +504,72 @@ export async function getEnrollmentBySchool(reportFilter: EnrollmentReportFilter
 
   return [...bySchool.values()].sort((a, b) => b.students.length - a.students.length);
 }
+
+export type DistrictEnrollmentStudent = {
+  legacyId: number;
+  firstName: string | null;
+  lastName: string | null;
+  grade: string | null;
+  vocationalRehab: boolean;
+  reportableStudent: boolean;
+};
+
+export type DistrictEnrollmentSchoolGroup = {
+  schoolId: number;
+  schoolName: string;
+  students: DistrictEnrollmentStudent[];
+};
+
+export type DistrictEnrollmentGroup = {
+  districtId: number;
+  districtName: string;
+  county: string;
+  schools: DistrictEnrollmentSchoolGroup[];
+  total: number;
+};
+
+// Enrollment by District — every active student's district and school, per
+// reports-district-enrollment.cfm / -details.cfm. Unlike the Districts
+// (Enrollment) KPI report in reports-queries.ts, the legacy page here has
+// no school-year scoping at all — it's a straight count of every currently
+// active student, so it's kept unscoped to match rather than folded into
+// that other report.
+export async function getEnrollmentByDistrict() {
+  const students = await prisma.student.findMany({
+    where: { active: true },
+    include: { school: { include: { district: true } } },
+    orderBy: [{ school: { name: "asc" } }, { lastName: "asc" }],
+  });
+
+  const byDistrict = new Map<number, DistrictEnrollmentGroup>();
+  for (const student of students) {
+    const districtId = student.school.districtId;
+    let group = byDistrict.get(districtId);
+    if (!group) {
+      group = {
+        districtId,
+        districtName: student.school.district.name,
+        county: student.school.district.county,
+        schools: [],
+        total: 0,
+      };
+      byDistrict.set(districtId, group);
+    }
+    let schoolGroup = group.schools.find((s) => s.schoolId === student.schoolId);
+    if (!schoolGroup) {
+      schoolGroup = { schoolId: student.schoolId, schoolName: student.school.name, students: [] };
+      group.schools.push(schoolGroup);
+    }
+    schoolGroup.students.push({
+      legacyId: student.legacyId,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      grade: student.grade,
+      vocationalRehab: student.vocationalRehab,
+      reportableStudent: student.reportableStudent,
+    });
+    group.total += 1;
+  }
+
+  return [...byDistrict.values()].sort((a, b) => b.total - a.total);
+}
