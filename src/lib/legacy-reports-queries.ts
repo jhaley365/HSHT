@@ -5,6 +5,7 @@
 // school year, not just the current one, matching the legacy app's own
 // School Year dropdown.
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { getCurrentSchoolYear } from "@/lib/school-year";
 import { getQuarterRange, type Quarter } from "@/lib/reports/quarters";
 
@@ -426,4 +427,80 @@ export async function getActivityByPreets(filters: PreetsFilters = {}) {
   const grandTotal = groups.reduce((sum, group) => sum + group.qty, 0) + otherTotal;
 
   return { groups, otherItems, otherTotal, grandTotal, schoolYear };
+}
+
+export type EnrollmentReportFilter = "All" | "HSHT" | "Reportable";
+
+export type SchoolEnrollmentStudent = {
+  legacyId: number;
+  firstName: string | null;
+  lastName: string | null;
+  grade: string | null;
+  vocationalRehab: boolean;
+  reportableStudent: boolean;
+  participationId: number | null;
+};
+
+export type SchoolEnrollmentGroup = {
+  schoolId: number;
+  schoolName: string;
+  schoolCode: string;
+  districtCode: string;
+  districtName: string;
+  streetAddress: string;
+  city: string;
+  students: SchoolEnrollmentStudent[];
+};
+
+// Enrollment by School — every active student's school, per
+// reports-school-enrollment.cfm, with the "Report" toggle (All / HSHT /
+// Reportable) filtering on Student.reportableStudent exactly like the
+// legacy page. The legacy report's "View" link opened a separate details
+// page (reports-school-enrollment-details.cfm) listing that school's
+// students one at a time; here the student list is fetched up front and
+// shown as an expandable drill-down instead of a second page-load.
+export async function getEnrollmentBySchool(reportFilter: EnrollmentReportFilter = "All") {
+  const where: Prisma.StudentWhereInput = { active: true };
+  if (reportFilter === "HSHT") where.reportableStudent = false;
+  if (reportFilter === "Reportable") where.reportableStudent = true;
+
+  const students = await prisma.student.findMany({
+    where,
+    include: { school: { include: { district: true } } },
+    orderBy: { lastName: "asc" },
+  });
+
+  const participations = await prisma.studentParticipation.findMany({
+    where: { studentId: { in: students.map((s) => s.legacyId) } },
+  });
+  const participationByStudent = new Map(participations.map((p) => [p.studentId, p.participationId]));
+
+  const bySchool = new Map<number, SchoolEnrollmentGroup>();
+  for (const student of students) {
+    let group = bySchool.get(student.schoolId);
+    if (!group) {
+      group = {
+        schoolId: student.schoolId,
+        schoolName: student.school.name,
+        schoolCode: student.school.schoolCode,
+        districtCode: student.school.district.code,
+        districtName: student.school.district.name,
+        streetAddress: student.school.streetAddress,
+        city: student.school.city,
+        students: [],
+      };
+      bySchool.set(student.schoolId, group);
+    }
+    group.students.push({
+      legacyId: student.legacyId,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      grade: student.grade,
+      vocationalRehab: student.vocationalRehab,
+      reportableStudent: student.reportableStudent,
+      participationId: participationByStudent.get(student.legacyId) ?? null,
+    });
+  }
+
+  return [...bySchool.values()].sort((a, b) => b.students.length - a.students.length);
 }

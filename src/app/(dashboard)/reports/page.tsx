@@ -63,6 +63,11 @@ const LEGACY_REPORTS = [
     title: "Activity by PREETS",
     description: "Student participation grouped by PREETS category and activity item, with a District filter — any school year, with a Quarter filter.",
   },
+  {
+    href: "/reports/enrollment-by-school",
+    title: "Enrollment by School",
+    description: "Every active student's school, drilled down into the students there, with an All/HSHT/Reportable toggle.",
+  },
 ];
 
 export default async function ReportsPage() {

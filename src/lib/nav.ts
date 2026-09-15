@@ -56,6 +56,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Activity by District/School", href: "/reports/activity-by-district-school" },
       { label: "Activity by District/School (Details)", href: "/reports/activity-by-district-school-details" },
       { label: "Activity by PREETS", href: "/reports/activity-by-preets" },
+      { label: "Enrollment by School", href: "/reports/enrollment-by-school" },
     ],
   },
   { label: "Enrollment Forms", href: "/enrollment-forms", icon: ClipboardList },
