@@ -415,8 +415,41 @@ model StudentArchive {
   raceOther      String?
   ethnicHeritage String?
   grade          String?
+  enterDate      String?
   enrollDate     DateTime?
   createDate     DateTime  @default(now())
+
+  // The legacy archive-insert (students-archive-eoy_update.cfm) carried
+  // these fields forward too, but the original migration of this table
+  // didn't map them — added so a snapshot taken by this app (see
+  // year-end-archive-actions.ts) keeps the same disability/VR/EIP/504/
+  // reportable breakdown Enrollment Demographics needs, instead of losing
+  // it the way every year archived before this did.
+  autism            Boolean   @default(false)
+  aspergers         Boolean   @default(false)
+  deaf              Boolean   @default(false)
+  ebd               Boolean   @default(false)
+  mobility          Boolean   @default(false)
+  ohi               Boolean   @default(false)
+  orthopedic        Boolean   @default(false)
+  speech            Boolean   @default(false)
+  sld               Boolean   @default(false)
+  spinal            Boolean   @default(false)
+  tbi               Boolean   @default(false)
+  visual            Boolean   @default(false)
+  otherDisability   Boolean   @default(false)
+  otherInfo         String?
+  section504        Boolean   @default(false)
+  eip               Boolean   @default(false)
+  vrc               String?
+  hshtCoordinator   String?
+  reportableStudent Boolean   @default(false)
+  receivedForm      Boolean   @default(false)
+  vocationalRehab   Boolean   @default(false)
+  reportableCheck   Boolean   @default(false)
+  vrCaseloadCheck   Boolean   @default(false)
+  graduated         Boolean   @default(false)
+  graduateDate      DateTime?
 
   @@index([studentId])
   @@map("student_archive")

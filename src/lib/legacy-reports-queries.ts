@@ -6,7 +6,7 @@
 // School Year dropdown.
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
-import { getCurrentSchoolYear } from "@/lib/school-year";
+import { getCurrentSchoolYear, archiveYearKey } from "@/lib/school-year";
 import { getQuarterRange, type Quarter } from "@/lib/reports/quarters";
 
 export async function getSchoolYearOptions() {
@@ -838,15 +838,9 @@ export async function getEnrollmentDemographics(
     return { schoolYear, rows };
   }
 
-  // Past school year — read from the StudentArchive snapshot instead. The
-  // legacy StudentArchive.SchoolYear column is a literal "YYYY-YYYY" string
-  // (see reports-students-activity-participated.cfm's hardcoded
-  // '2020-2021'), which the sync script (scripts/sync-legacy.ts) copies
-  // over verbatim. SchoolYear.legacyId is just a sequential row ID, not the
-  // calendar year (confirmed against production — id 10 is school year
-  // "2025-2026"), so the string has to come from the actual begin/end
-  // dates instead.
-  const archiveSchoolYear = `${schoolYearBeginDate.getFullYear()}-${schoolYearEndDate.getFullYear()}`;
+  // Past school year — read from the StudentArchive snapshot instead. See
+  // archiveYearKey (school-year.ts) for the "YYYY-YYYY" string format.
+  const archiveSchoolYear = archiveYearKey(schoolYear) ?? `${schoolYearBeginDate.getFullYear()}-${schoolYearEndDate.getFullYear()}`;
   const archiveStudents = await prisma.studentArchive.findMany({
     where: { schoolYear: archiveSchoolYear, active: true },
     select: { studentId: true, gender: true, race: true, grade: true, birthDate: true, schoolId: true },
