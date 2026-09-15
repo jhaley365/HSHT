@@ -34,31 +34,68 @@ const REPORTS = [
   },
 ];
 
+// Reports migrated from the legacy ColdFusion app's own Reports section —
+// not tied to a Home dashboard KPI, and support browsing any past school
+// year rather than just the current one.
+const LEGACY_REPORTS = [
+  {
+    href: "/reports/activity-by-coordinator",
+    title: "Activity Summary by Coordinator",
+    description: "Each HSHT coordinator's activity, by school, with the number of students served — any school year, with a Quarter filter.",
+  },
+];
+
 export default async function ReportsPage() {
   await requireUser();
 
   return (
-    <div className="flex flex-1 flex-col gap-5">
-      <div className="text-[12.5px]" style={{ color: "var(--muted)" }}>
-        Reports based on the Home dashboard KPI cards. Each report can be exported to PDF (via Print) or XLSX.
+    <div className="flex flex-1 flex-col gap-6">
+      <div className="flex flex-1 flex-col gap-5">
+        <div className="text-[12.5px]" style={{ color: "var(--muted)" }}>
+          Reports based on the Home dashboard KPI cards. Each report can be exported to PDF (via Print) or XLSX.
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          {REPORTS.map((report) => (
+            <Link
+              key={report.href}
+              href={report.href}
+              className="rounded-[14px] border p-5 transition-colors"
+              style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+            >
+              <div className="text-[14.5px] font-extrabold" style={{ color: "var(--heading)" }}>
+                {report.title}
+              </div>
+              <div className="mt-1.5 text-[12.5px]" style={{ color: "var(--muted)" }}>
+                {report.description}
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {REPORTS.map((report) => (
-          <Link
-            key={report.href}
-            href={report.href}
-            className="rounded-[14px] border p-5 transition-colors"
-            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-          >
-            <div className="text-[14.5px] font-extrabold" style={{ color: "var(--heading)" }}>
-              {report.title}
-            </div>
-            <div className="mt-1.5 text-[12.5px]" style={{ color: "var(--muted)" }}>
-              {report.description}
-            </div>
-          </Link>
-        ))}
+      <div className="flex flex-col gap-5">
+        <div className="text-[13px] font-extrabold" style={{ color: "var(--heading)" }}>
+          Legacy Reports
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          {LEGACY_REPORTS.map((report) => (
+            <Link
+              key={report.href}
+              href={report.href}
+              className="rounded-[14px] border p-5 transition-colors"
+              style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+            >
+              <div className="text-[14.5px] font-extrabold" style={{ color: "var(--heading)" }}>
+                {report.title}
+              </div>
+              <div className="mt-1.5 text-[12.5px]" style={{ color: "var(--muted)" }}>
+                {report.description}
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -82,10 +82,18 @@ body {
 /* Reports drill-down (<details>/<summary>) — force every level open when
    printing, overriding the UA stylesheet's `details:not([open]) > :not(summary)
    { display: none }` so a printed report shows the full hierarchy regardless
-   of what the user had expanded on screen. */
+   of what the user had expanded on screen. Chromium (~131+) also renders a
+   closed details' content through an internal `::details-content`
+   pseudo-element with its own content-visibility/height, which the plain
+   `display` override above doesn't reach — that pseudo-element needs its
+   own override, or the content lays out at zero height and never paints. */
 @media print {
   details:not([open]) > *:not(summary) {
     display: block !important;
+  }
+  details:not([open])::details-content {
+    content-visibility: visible !important;
+    block-size: auto !important;
   }
   details > summary {
     list-style: none;
