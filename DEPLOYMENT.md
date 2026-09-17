@@ -124,7 +124,14 @@ edited here gets reset back to the legacy row's values, since the sync
 upserts every field it recognizes). There's no `--only=` exclusion needed
 before that point; there will be after.
 
-Install the cron job (`ubuntu` user, VPS):
+The same reasoning applies to `sync:legacy:ytep` (see
+scripts/sync-legacy-ytep.ts) — YTEP's legacy database is also still
+authoritative day-to-day, so it gets its own nightly full sync, and the
+same "stop this once the app takes over YTEP's workflow too" rule applies
+independently (HSHT and YTEP could reach that cutover point at different
+times).
+
+Install the cron jobs (`ubuntu` user, VPS):
 ```bash
 crontab -e
 ```
@@ -132,11 +139,16 @@ Add:
 ```cron
 CRON_TZ=America/New_York
 0 4 * * * cd /home/ubuntu/hsht && /usr/bin/docker compose run --rm --build sync npm run sync:legacy > /home/ubuntu/hsht-sync.log 2>&1
+15 4 * * * cd /home/ubuntu/hsht && /usr/bin/docker compose run --rm --build sync npm run sync:legacy:ytep > /home/ubuntu/hsht-sync-ytep.log 2>&1
 ```
-`CRON_TZ` keeps this at 4am Eastern year-round (handles the EST/EDT
-switch automatically) rather than a fixed UTC offset that would drift an
-hour during daylight saving. Confirm `docker`'s path first with
-`which docker` — adjust the line if it's not `/usr/bin/docker`.
+`CRON_TZ` keeps these at 4:00/4:15am Eastern year-round (handles the
+EST/EDT switch automatically) rather than a fixed UTC offset that would
+drift an hour during daylight saving. The YTEP sync is staggered 15
+minutes after HSHT's so the two `docker compose run` invocations don't
+overlap (both jobs finish in well under a minute against real data, per
+the dry-run/real-run timings when this was set up — 15 minutes is a wide
+safety margin, not a measured requirement). Confirm `docker`'s path first
+with `which docker` — adjust both lines if it's not `/usr/bin/docker`.
 
 `--build` is required on every `sync` invocation (see above — otherwise a
 stale image gets silently reused). The log is overwritten each run, not
