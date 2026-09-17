@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireUser } from "@/lib/authz";
 import {
   getStudentsList,
   type StudentStatusFilter,
@@ -61,6 +62,9 @@ export default async function StudentsPage({
     page?: string;
   }>;
 }) {
+  const session = await requireUser();
+  const canManage = session.user.role === "STAFF" || session.user.role === "ADMIN";
+
   const params = await searchParams;
   const q = params.q ?? "";
   const status = parseStatus(params.status);
@@ -82,6 +86,25 @@ export default async function StudentsPage({
 
   return (
     <div className="flex flex-1 flex-col gap-5">
+      {canManage && (
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/students/new?program=HSHT"
+            className="rounded-[9px] px-4 py-2 text-[12.5px] font-bold text-white"
+            style={{ background: "var(--primary)" }}
+          >
+            New HS/HT Student
+          </Link>
+          <Link
+            href="/students/new?program=YTEP"
+            className="rounded-[9px] px-4 py-2 text-[12.5px] font-bold text-white"
+            style={{ background: "var(--accent)" }}
+          >
+            New YTEP Student
+          </Link>
+        </div>
+      )}
+
       <div className="rounded-[14px] border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
         <form className="flex flex-wrap items-end gap-3" action="/students" method="get">
           <input type="hidden" name="sort" value={sort} />
