@@ -13,6 +13,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "sync:legacy": "tsx scripts/sync-legacy.ts",
+    "sync:legacy:ytep": "tsx scripts/sync-legacy-ytep.ts",
     "seed:users": "tsx scripts/seed-users.ts"
   },
   "dependencies": {

@@ -153,6 +153,16 @@ enum UserRole {
   ADMIN
 }
 
+// HSHT and YTEP were, until now, two separately-run legacy applications on
+// the same underlying schema (YTEP's database is literally a duplicated
+// copy — see scripts/sync-legacy-ytep.ts). Defaulting to HSHT means every
+// row synced before YTEP existed in this app keeps its correct meaning
+// without a backfill.
+enum Program {
+  HSHT
+  YTEP
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -255,6 +265,7 @@ model Activity {
   createDate    DateTime  @default(now())
   preets        String? // legacy PREETS — meaning unconfirmed
   coordinatorId Int? // legacy HSHTCoordinator (int) — references Coordinator.legacyId
+  program       Program   @default(HSHT)
 
   school            School            @relation(fields: [schoolId], references: [legacyId])
   details           ActivityDetail[]
@@ -342,6 +353,7 @@ model Student {
   race           String?
   raceOther      String?
   ethnicHeritage String?
+  program        Program   @default(HSHT)
 
   // disability/accommodation flags (legacy single-char Y/N columns)
   autism          Boolean @default(false)
@@ -355,6 +367,7 @@ model Student {
   sld             Boolean @default(false)
   spinal          Boolean @default(false)
   tbi             Boolean @default(false)
+  mid             Boolean @default(false) // legacy MID — YTEP-only disability flag, meaning unconfirmed; HSHT's own database never had this column
   visual          Boolean @default(false)
   otherDisability Boolean @default(false)
   otherInfo       String?
@@ -414,6 +427,7 @@ model StudentArchive {
   race           String?
   raceOther      String?
   ethnicHeritage String?
+  program        Program   @default(HSHT)
   grade          String?
   enterDate      String?
   enrollDate     DateTime?
@@ -436,6 +450,7 @@ model StudentArchive {
   sld               Boolean   @default(false)
   spinal            Boolean   @default(false)
   tbi               Boolean   @default(false)
+  mid               Boolean   @default(false) // legacy MID — YTEP-only disability flag, meaning unconfirmed; HSHT's own database never had this column
   visual            Boolean   @default(false)
   otherDisability   Boolean   @default(false)
   otherInfo         String?

@@ -46,6 +46,7 @@ export const GRADE_LABELS: Record<string, string> = {
   "3": "10th Grade (Sophomore)",
   "4": "11th Grade (Junior)",
   "5": "12th Grade (Senior)",
+  "5.5": "12th Grade+ (Senior)", // YTEP-only grade code — HSHT's own database never used this value
   "6": "Other (Out of School)",
 };
 

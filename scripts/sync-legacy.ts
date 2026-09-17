@@ -22,8 +22,9 @@
 //   LEGACY_MSSQL_PASSWORD, LEGACY_MSSQL_DATABASE
 
 import "dotenv/config";
-import sql from "mssql";
+import type sql from "mssql";
 import { prisma } from "../src/lib/prisma";
+import { type JobResult, toBool, toDecimal, safeUpsert, connectMssql } from "./lib/legacy-sync-helpers";
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
@@ -31,51 +32,6 @@ const ONLY = args.find((a) => a.startsWith("--only="))?.slice("--only=".length).
 
 function shouldRun(name: string) {
   return !ONLY || ONLY.includes(name);
-}
-
-type JobResult = { total: number; skipped: number };
-
-// --- transform helpers -------------------------------------------------
-
-// Legacy boolean-ish columns show up as int (0/1) or varchar(1)/char(1)
-// ('Y'/'N' by convention in most SQL Server apps). Permissive on purpose —
-// confirm the real encoding against the first dry-run before trusting this
-// for the disability/accommodation flags.
-function toBool(v: unknown): boolean {
-  if (v === null || v === undefined) return false;
-  if (typeof v === "boolean") return v;
-  if (typeof v === "number") return v !== 0;
-  const s = String(v).trim().toUpperCase();
-  return s === "Y" || s === "1" || s === "T" || s === "TRUE";
-}
-
-function toDecimal(v: unknown): number | null {
-  if (v === null || v === undefined) return null;
-  const n = Number(v);
-  return Number.isNaN(n) ? null : n;
-}
-
-// P2003 = foreign key constraint failed, P2002 = unique constraint failed.
-// Both indicate a row referencing/duplicating something that doesn't hold up
-// in the real data (see MIGRATION.md) — skip it rather than abort the sync.
-function isSkippableConstraintError(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    typeof (err as { code?: unknown }).code === "string" &&
-    ["P2003", "P2002"].includes((err as { code: string }).code)
-  );
-}
-
-async function safeUpsert(fn: () => Promise<unknown>): Promise<boolean> {
-  try {
-    await fn();
-    return true;
-  } catch (err) {
-    if (isSkippableConstraintError(err)) return false;
-    throw err;
-  }
 }
 
 // --- connection ----------------------------------------------------------
@@ -90,16 +46,14 @@ async function getLegacyPool() {
       "Missing LEGACY_MSSQL_HOST / LEGACY_MSSQL_USER / LEGACY_MSSQL_PASSWORD / LEGACY_MSSQL_DATABASE env vars"
     );
   }
-  return sql.connect({
-    server: host,
+  return connectMssql({
+    host,
     port: Number(process.env.LEGACY_MSSQL_PORT ?? 1433),
     user,
     password,
     database,
-    options: {
-      encrypt: (process.env.LEGACY_MSSQL_ENCRYPT ?? "true") === "true",
-      trustServerCertificate: (process.env.LEGACY_MSSQL_TRUST_SERVER_CERTIFICATE ?? "true") === "true",
-    },
+    encrypt: (process.env.LEGACY_MSSQL_ENCRYPT ?? "true") === "true",
+    trustServerCertificate: (process.env.LEGACY_MSSQL_TRUST_SERVER_CERTIFICATE ?? "true") === "true",
   });
 }
 
