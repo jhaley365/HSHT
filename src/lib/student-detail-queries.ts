@@ -14,9 +14,12 @@ export const getStudentProfile = cache(async (id: string) => {
   });
 });
 
+// Only shows once the parent Activity is closed — matches the legacy
+// behavior, where a student's Activity tab is a record of participation
+// that's been finalized, not a view into activities still in progress.
 export async function getStudentActivities(legacyId: number) {
   return prisma.studentActivity.findMany({
-    where: { studentId: legacyId },
+    where: { studentId: legacyId, activity: { closed: true } },
     include: { activity: true },
     orderBy: { createDate: "desc" },
   });
