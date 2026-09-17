@@ -98,7 +98,7 @@ export default async function StudentsPage({
           <Link
             href="/students/new?program=YTEP"
             className="rounded-[9px] px-4 py-2 text-[12.5px] font-bold text-white"
-            style={{ background: "var(--accent)" }}
+            style={{ background: "#2563eb" }}
           >
             New YTEP Student
           </Link>
