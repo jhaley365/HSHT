@@ -1,10 +1,8 @@
 import { GENDER_LABELS, RACE_LABELS, ETHNIC_HERITAGE_LABELS, GRADE_LABELS } from "@/lib/legacy-codes";
 import { StudentSchoolFields } from "@/components/students/StudentSchoolFields";
 import type { Program } from "@/generated/prisma/client";
-import type { getDistrictOptions } from "@/lib/reports-queries";
 import type { getSchoolOptions } from "@/lib/activity-queries";
 
-type Districts = Awaited<ReturnType<typeof getDistrictOptions>>;
 type Schools = Awaited<ReturnType<typeof getSchoolOptions>>;
 
 const GENDER_OPTIONS = Object.entries(GENDER_LABELS);
@@ -91,17 +89,13 @@ function CheckboxLabel({ name, label, defaultChecked }: { name: string; label: s
 
 export function StudentFormFields({
   program,
-  districts,
   schools,
-  defaultDistrictId,
   defaultSchoolId,
   defaults = {},
   showActiveToggle = false,
 }: {
   program: Program;
-  districts: Districts;
   schools: Schools;
-  defaultDistrictId?: number;
   defaultSchoolId?: number;
   defaults?: StudentFormDefaults;
   showActiveToggle?: boolean;
@@ -123,7 +117,7 @@ export function StudentFormFields({
           </span>
         </div>
         <div className="grid max-w-[560px] gap-3">
-          <StudentSchoolFields districts={districts} schools={schools} defaultDistrictId={defaultDistrictId} defaultSchoolId={defaultSchoolId} />
+          <StudentSchoolFields schools={schools} defaultSchoolId={defaultSchoolId} />
         </div>
       </div>
 

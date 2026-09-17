@@ -1,5 +1,4 @@
 import { requireStaff } from "@/lib/authz";
-import { getDistrictOptions } from "@/lib/reports-queries";
 import { getSchoolOptions } from "@/lib/activity-queries";
 import { createStudentAction } from "@/lib/actions/student-actions";
 import { StudentFormFields } from "@/components/students/StudentFormFields";
@@ -20,7 +19,7 @@ export default async function NewStudentPage({
   const { program: programParam, error } = await searchParams;
   const program = parseProgram(programParam);
 
-  const [districts, schools] = await Promise.all([getDistrictOptions(), getSchoolOptions()]);
+  const schools = await getSchoolOptions();
 
   return (
     <div className="flex flex-1 flex-col gap-5">
@@ -38,7 +37,7 @@ export default async function NewStudentPage({
           New {program} Student
         </div>
 
-        <StudentFormFields program={program} districts={districts} schools={schools} />
+        <StudentFormFields program={program} schools={schools} />
 
         <div className="flex items-center gap-3">
           <button type="submit" className="rounded-[9px] px-6 py-2.5 text-[13px] font-bold text-white" style={{ background: "var(--positive)" }}>

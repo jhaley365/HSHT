@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { getStudentProfile } from "@/lib/student-detail-queries";
-import { getDistrictOptions } from "@/lib/reports-queries";
 import { getSchoolOptions } from "@/lib/activity-queries";
 import { updateStudentAction } from "@/lib/actions/student-actions";
 import { StudentFormFields, type StudentFormDefaults } from "@/components/students/StudentFormFields";
@@ -23,7 +22,7 @@ export default async function EditStudentPage({
   const student = await getStudentProfile(id);
   if (!student) notFound();
 
-  const [districts, schools] = await Promise.all([getDistrictOptions(), getSchoolOptions()]);
+  const schools = await getSchoolOptions();
 
   const defaults: StudentFormDefaults = {
     firstName: student.firstName ?? undefined,
@@ -87,9 +86,7 @@ export default async function EditStudentPage({
 
         <StudentFormFields
           program={student.program}
-          districts={districts}
           schools={schools}
-          defaultDistrictId={student.school.districtId}
           defaultSchoolId={student.schoolId}
           defaults={defaults}
           showActiveToggle
