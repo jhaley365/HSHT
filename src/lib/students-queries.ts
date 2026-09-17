@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma, Program } from "@/generated/prisma/client";
 
 export type StudentStatusFilter = "all" | "active" | "inactive";
 export type StudentSortKey = "type" | "firstName" | "lastName" | "school";
@@ -28,6 +28,7 @@ export async function getStudentsList({
   schoolId,
   grade,
   gender,
+  program,
   sort,
   dir,
   page,
@@ -39,6 +40,7 @@ export async function getStudentsList({
   schoolId?: number;
   grade?: string;
   gender?: string;
+  program?: Program;
   sort: StudentSortKey;
   dir: SortDir;
   page: number;
@@ -61,6 +63,7 @@ export async function getStudentsList({
   // trim, and is unambiguous since every code is a single digit.
   if (grade) where.grade = { startsWith: grade };
   if (gender) where.gender = { startsWith: gender };
+  if (program) where.program = program;
 
   const [students, total] = await Promise.all([
     prisma.student.findMany({

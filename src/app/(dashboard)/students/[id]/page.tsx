@@ -11,6 +11,7 @@ const DISABILITY_FIELDS = [
   ["aspergers", "Asperger's"],
   ["deaf", "Deaf"],
   ["ebd", "Emotional/Behavioral Disorder"],
+  ["mid", "MID"],
   ["mobility", "Mobility"],
   ["ohi", "Other Health Impairment"],
   ["orthopedic", "Orthopedic"],
@@ -36,6 +37,7 @@ export default async function StudentInformationPage({ params }: { params: Promi
   return (
     <div className="flex flex-col gap-4 rounded-[14px] border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
       <Section title="Classification">
+        <InfoRow label="Program" value={student.program} />
         <InfoRow label="Gender" value={formatGender(student.gender)} />
         <InfoRow label="Race" value={formatRace(student.race, student.raceOther)} />
         <InfoRow label="Ethnic Heritage" value={formatEthnicHeritage(student.ethnicHeritage)} />

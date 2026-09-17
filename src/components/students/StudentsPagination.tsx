@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { buildStudentsHref } from "@/lib/students-url";
 import type { StudentSortKey, SortDir, StudentStatusFilter } from "@/lib/students-queries";
+import type { Program } from "@/generated/prisma/client";
 
 export function StudentsPagination({
   page,
@@ -12,6 +13,7 @@ export function StudentsPagination({
   schoolId,
   grade,
   gender,
+  program,
   sort,
   dir,
 }: {
@@ -24,6 +26,7 @@ export function StudentsPagination({
   schoolId?: number;
   grade?: string;
   gender?: string;
+  program?: Program;
   sort: StudentSortKey;
   dir: SortDir;
 }) {
@@ -35,7 +38,7 @@ export function StudentsPagination({
       <div className="flex items-center gap-3">
         {page > 1 ? (
           <Link
-            href={buildStudentsHref({ q, status, districtId, schoolId, grade, gender, sort, dir, page: page - 1 })}
+            href={buildStudentsHref({ q, status, districtId, schoolId, grade, gender, program, sort, dir, page: page - 1 })}
             className="font-bold"
             style={{ color: "var(--accent)" }}
           >
@@ -49,7 +52,7 @@ export function StudentsPagination({
         </span>
         {page < totalPages ? (
           <Link
-            href={buildStudentsHref({ q, status, districtId, schoolId, grade, gender, sort, dir, page: page + 1 })}
+            href={buildStudentsHref({ q, status, districtId, schoolId, grade, gender, program, sort, dir, page: page + 1 })}
             className="font-bold"
             style={{ color: "var(--accent)" }}
           >

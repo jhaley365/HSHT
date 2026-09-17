@@ -12,14 +12,16 @@ import { DEFAULT_SORT, DEFAULT_DIR } from "@/lib/students-url";
 import { StudentsPagination } from "@/components/students/StudentsPagination";
 import { SortableHeader } from "@/components/students/SortableHeader";
 import { DistrictSchoolFields } from "@/components/students/DistrictSchoolFields";
+import type { Program } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
-const GRID_COLS = "110px 1fr 1fr 1.4fr";
+const GRID_COLS = "110px 90px 1fr 1fr 1.4fr";
 
 const GRADE_OPTIONS = Object.entries(GRADE_LABELS) as [string, string][];
 const GENDER_OPTIONS = Object.entries(GENDER_LABELS) as [string, string][];
+const PROGRAM_OPTIONS: Program[] = ["HSHT", "YTEP"];
 
 const selectStyle = {
   background: "var(--surface-2)",
@@ -33,6 +35,10 @@ function parseStatus(value: string | undefined): StudentStatusFilter {
 
 function parseSort(value: string | undefined): StudentSortKey {
   return value === "type" || value === "firstName" || value === "school" ? value : DEFAULT_SORT;
+}
+
+function parseProgram(value: string | undefined): Program | undefined {
+  return value === "HSHT" || value === "YTEP" ? value : undefined;
 }
 
 function parseDir(value: string | undefined): SortDir {
@@ -49,6 +55,7 @@ export default async function StudentsPage({
     schoolId?: string;
     grade?: string;
     gender?: string;
+    program?: string;
     sort?: string;
     dir?: string;
     page?: string;
@@ -61,12 +68,13 @@ export default async function StudentsPage({
   const schoolId = params.schoolId ? Number(params.schoolId) : undefined;
   const grade = params.grade && GRADE_LABELS[params.grade] ? params.grade : undefined;
   const gender = params.gender && GENDER_LABELS[params.gender] ? params.gender : undefined;
+  const program = parseProgram(params.program);
   const sort = parseSort(params.sort);
   const dir = parseDir(params.dir);
   const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
 
   const [{ students, total }, districts, schools] = await Promise.all([
-    getStudentsList({ q, status, districtId, schoolId, grade, gender, sort, dir, page, pageSize: PAGE_SIZE }),
+    getStudentsList({ q, status, districtId, schoolId, grade, gender, program, sort, dir, page, pageSize: PAGE_SIZE }),
     getDistrictOptions(),
     getSchoolOptions(),
   ]);
@@ -132,6 +140,20 @@ export default async function StudentsPage({
             </select>
           </div>
 
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold" style={{ color: "var(--muted)" }}>
+              Program
+            </label>
+            <select name="program" defaultValue={program ?? ""} className="rounded-[9px] border px-3 py-2 text-[13px] outline-none" style={selectStyle}>
+              <option value="">All</option>
+              {PROGRAM_OPTIONS.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button
             type="submit"
             className="rounded-[9px] px-5 py-2 text-[13px] font-bold text-white"
@@ -147,10 +169,11 @@ export default async function StudentsPage({
           className="grid px-5 py-3 text-[10.5px] font-extrabold uppercase tracking-[0.05em]"
           style={{ gridTemplateColumns: GRID_COLS, color: "var(--muted)" }}
         >
-          <SortableHeader label="Type" sortKey="type" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} schoolId={schoolId} grade={grade} gender={gender} />
-          <SortableHeader label="First Name" sortKey="firstName" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} schoolId={schoolId} grade={grade} gender={gender} />
-          <SortableHeader label="Last Name" sortKey="lastName" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} schoolId={schoolId} grade={grade} gender={gender} />
-          <SortableHeader label="School" sortKey="school" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} schoolId={schoolId} grade={grade} gender={gender} />
+          <SortableHeader label="Type" sortKey="type" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} schoolId={schoolId} grade={grade} gender={gender} program={program} />
+          <span>Program</span>
+          <SortableHeader label="First Name" sortKey="firstName" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} schoolId={schoolId} grade={grade} gender={gender} program={program} />
+          <SortableHeader label="Last Name" sortKey="lastName" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} schoolId={schoolId} grade={grade} gender={gender} program={program} />
+          <SortableHeader label="School" sortKey="school" currentSort={sort} currentDir={dir} q={q} status={status} districtId={districtId} schoolId={schoolId} grade={grade} gender={gender} program={program} />
         </div>
 
         {students.length === 0 && (
@@ -167,6 +190,7 @@ export default async function StudentsPage({
             style={{ gridTemplateColumns: GRID_COLS, borderColor: "var(--border)" }}
           >
             <span style={{ color: "var(--muted)" }}>{student.reportableStudent ? "Reportable" : "HS/HT"}</span>
+            <span style={{ color: student.program === "YTEP" ? "var(--accent)" : "var(--muted)" }}>{student.program}</span>
             <span style={{ color: "var(--text)" }}>{student.firstName}</span>
             <span style={{ color: "var(--text)" }}>{student.lastName}</span>
             <span style={{ color: "var(--text)" }}>{student.school.name}</span>
@@ -184,6 +208,7 @@ export default async function StudentsPage({
         schoolId={schoolId}
         grade={grade}
         gender={gender}
+        program={program}
         sort={sort}
         dir={dir}
       />

@@ -1,4 +1,5 @@
 import type { StudentStatusFilter, StudentSortKey, SortDir } from "@/lib/students-queries";
+import type { Program } from "@/generated/prisma/client";
 
 export const DEFAULT_SORT: StudentSortKey = "lastName";
 export const DEFAULT_DIR: SortDir = "asc";
@@ -10,6 +11,7 @@ export function buildStudentsHref(params: {
   schoolId?: number;
   grade?: string;
   gender?: string;
+  program?: Program;
   sort: StudentSortKey;
   dir: SortDir;
   page: number;
@@ -21,6 +23,7 @@ export function buildStudentsHref(params: {
   if (params.schoolId) sp.set("schoolId", String(params.schoolId));
   if (params.grade) sp.set("grade", params.grade);
   if (params.gender) sp.set("gender", params.gender);
+  if (params.program) sp.set("program", params.program);
   if (params.sort !== DEFAULT_SORT) sp.set("sort", params.sort);
   if (params.dir !== DEFAULT_DIR) sp.set("dir", params.dir);
   if (params.page > 1) sp.set("page", String(params.page));

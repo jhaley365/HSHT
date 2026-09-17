@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUp, ArrowDown, ChevronsUpDown } from "lucide-react";
 import { buildStudentsHref } from "@/lib/students-url";
 import type { StudentSortKey, SortDir, StudentStatusFilter } from "@/lib/students-queries";
+import type { Program } from "@/generated/prisma/client";
 
 export function SortableHeader({
   label,
@@ -14,6 +15,7 @@ export function SortableHeader({
   schoolId,
   grade,
   gender,
+  program,
 }: {
   label: string;
   sortKey: StudentSortKey;
@@ -25,10 +27,11 @@ export function SortableHeader({
   schoolId?: number;
   grade?: string;
   gender?: string;
+  program?: Program;
 }) {
   const active = currentSort === sortKey;
   const nextDir: SortDir = active && currentDir === "asc" ? "desc" : "asc";
-  const href = buildStudentsHref({ q, status, districtId, schoolId, grade, gender, sort: sortKey, dir: nextDir, page: 1 });
+  const href = buildStudentsHref({ q, status, districtId, schoolId, grade, gender, program, sort: sortKey, dir: nextDir, page: 1 });
 
   return (
     <Link
