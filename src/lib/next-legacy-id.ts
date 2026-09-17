@@ -11,7 +11,7 @@ import type { Prisma } from "@/generated/prisma/client";
 // 10,000s as of this writing).
 const APP_CREATED_ID_FLOOR = 9_000_000;
 
-type LegacyIdModel = "activity" | "activityDetail" | "vendor" | "studentActivity" | "student";
+type LegacyIdModel = "activity" | "activityDetail" | "vendor" | "studentActivity" | "student" | "studentOutcome";
 
 export async function nextLegacyId(tx: Prisma.TransactionClient, model: LegacyIdModel): Promise<number> {
   const { _max } =
@@ -23,7 +23,9 @@ export async function nextLegacyId(tx: Prisma.TransactionClient, model: LegacyId
           ? await tx.vendor.aggregate({ _max: { legacyId: true } })
           : model === "studentActivity"
             ? await tx.studentActivity.aggregate({ _max: { legacyId: true } })
-            : await tx.student.aggregate({ _max: { legacyId: true } });
+            : model === "student"
+              ? await tx.student.aggregate({ _max: { legacyId: true } })
+              : await tx.studentOutcome.aggregate({ _max: { legacyId: true } });
   // Student legacyIds also need to stay clear of the YTEP sync's offset range
   // (YTEP_ID_OFFSET = 2,000,000,000 in scripts/sync-legacy-ytep.ts) — the
   // floor here (9,000,000) is comfortably below that, same as every other
