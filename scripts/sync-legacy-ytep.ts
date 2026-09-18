@@ -134,16 +134,23 @@ export async function matchOrCreateSchools(
   const { recordset } = await pool.request().query("SELECT * FROM dbo.Schools");
   const idMap = new Map<number, number>();
   for (const row of recordset) {
-    const existing = await prisma.school.findFirst({ where: { schoolCode: row.SchoolCode } });
-    if (existing) {
-      idMap.set(row.ID, existing.legacyId);
-      stats.matched++;
-      continue;
-    }
     const districtId = districtIdMap.get(parseInt(row.DID, 10));
     if (districtId === undefined) {
       // A school whose district we couldn't resolve — skip rather than
       // create with a dangling FK.
+      continue;
+    }
+    // schoolCode is only unique WITHIN a district (it's a small per-district
+    // number, e.g. "01"/"02" — see the "{district.code}-{schoolCode}" label
+    // used everywhere else in the app). Matching on schoolCode alone let a
+    // YTEP school silently match an unrelated HSHT school in a different
+    // district that happened to reuse the same code, misrouting every
+    // Activity/Student/etc. synced against it — caught via a client report
+    // of YTEP activities showing up under the wrong school.
+    const existing = await prisma.school.findFirst({ where: { schoolCode: row.SchoolCode, districtId } });
+    if (existing) {
+      idMap.set(row.ID, existing.legacyId);
+      stats.matched++;
       continue;
     }
     const legacyId = row.ID + YTEP_ID_OFFSET;
